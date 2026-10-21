@@ -1,13 +1,15 @@
 services:
-  ccm:
+  useecard:
+    image: ghcr.io/barnaclexr/useecard:${USEECARD_VERSION:-latest}
+    # 拉取不到镜像时（例如在源码目录中），从本地 Dockerfile 构建。
     build: .
     restart: unless-stopped
     init: true
     ports:
-      - "127.0.0.1:3090:3000"
+      - "${USEECARD_BIND:-127.0.0.1}:${USEECARD_PORT:-3090}:3000"
     environment:
-      BASE_URL: ${BASE_URL:?请设置实际 HTTPS 地址}
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      BASE_URL: ${BASE_URL:?请在 .env 中设置 BASE_URL}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
       APPRISE_API_URL: ${APPRISE_API_URL:-}
       APPRISE_API_USERNAME: ${APPRISE_API_USERNAME:-}
       APPRISE_API_PASSWORD: ${APPRISE_API_PASSWORD:-}
@@ -19,7 +21,7 @@ services:
       OIDC_SCOPES: ${OIDC_SCOPES:-}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
     volumes:
-      - ccm-data:/data
+      - useecard-data:/data
   apprise:
     image: caronc/apprise@sha256:0b2913b15c8eb47c25345722985ffbfae701326edde21909c205d296d62dd52c
     profiles: [notifications]
@@ -31,4 +33,4 @@ services:
       TZ: Asia/Tokyo
     # 只供同一 Compose 网络内的 useeCard 访问，不开放宿主机端口。
 volumes:
-  ccm-data:
+  useecard-data:

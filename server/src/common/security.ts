@@ -18,3 +18,9 @@ export class RateLimitService {
   }
   clear(key: string) { this.buckets.delete(key); }
 }
+
+/** 会话 Cookie 是否带 Secure：显式设置 COOKIE_SECURE 时以其为准，否则按 BASE_URL 是否为 https 判断。 */
+export function secureCookies() {
+  const explicit = process.env.COOKIE_SECURE;
+  return explicit ? explicit !== 'false' : (process.env.BASE_URL || '').startsWith('https://');
+}

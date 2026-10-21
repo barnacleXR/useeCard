@@ -20,19 +20,18 @@
 
 ```dotenv
 BASE_URL=https://card.example.com
-COOKIE_SECURE=true
 APPRISE_API_URL=http://apprise:8000/notify
 ```
 
 启动带可选通知服务的部署：
 
 ```sh
-docker compose --profile notifications up -d --build
+docker compose --profile notifications up -d
 ```
 
 Apprise 不开放宿主机端口，只有同一 Compose 网络的 useeCard 可以访问。关闭有状态配置与附件，不需要额外的 Apprise 配置数据库。镜像固定为官方镜像摘要；升级时请确认 `/notify` 接口兼容。
 
-不需要外部通知时，保持 `APPRISE_API_URL` 为空，用普通 `docker compose up -d --build` 启动 useeCard 即可。
+不需要外部通知时，保持 `APPRISE_API_URL` 为空，用普通 `docker compose up -d` 启动 useeCard 即可。
 
 已有 Apprise 服务时，填写完整的无状态 `/notify` 地址（支持反向代理子路径）。若网关启用 Basic Auth，另设 `APPRISE_API_USERNAME`、`APPRISE_API_PASSWORD`。服务端地址仅由部署环境设置，前端通道表单填写接收目标，不修改网关地址。远程网关请使用 HTTPS。
 

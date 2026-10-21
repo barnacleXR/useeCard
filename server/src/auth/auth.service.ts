@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 import { credentialsInput } from '@ccm/shared';
 import { z } from 'zod';
 import { DatabaseService } from '../database.js';
-import { RateLimitService, hashToken } from '../common/security.js';
+import { RateLimitService, hashToken, secureCookies } from '../common/security.js';
 
 export interface AuthRequest extends Request { ownerId: string; deviceId?: string }
 const DUMMY_HASH = `${'0'.repeat(32)}:${'0'.repeat(128)}`;
@@ -42,7 +42,7 @@ export class AuthService {
     const csrf = randomBytes(32).toString('hex');
     this.database.db.prepare('DELETE FROM sessions WHERE expiresAt<?').run(now);
     this.database.db.prepare('INSERT INTO sessions(tokenHash,userId,csrf,expiresAt,id,createdAt,lastUsedAt,userAgent) VALUES(?,?,?,?,?,?,?,?)').run(hashToken(token), userId, csrf, now + 7 * 86400000, randomUUID(), now, now, (req.headers['user-agent'] || '').slice(0,300));
-    res.cookie('ccm_session', token, {httpOnly: true, sameSite: 'strict', secure: process.env.COOKIE_SECURE !== 'false', maxAge: 7 * 86400000, path: '/'});
+    res.cookie('ccm_session', token, {httpOnly: true, sameSite: 'strict', secure: secureCookies(), maxAge: 7 * 86400000, path: '/'});
     this.audit(userId, action, userId);
     return { csrf };
   }
@@ -90,7 +90,7 @@ export class AuthService {
       this.database.db.prepare('DELETE FROM pairing_codes WHERE userId=?').run(current.ownerId);
       this.audit(current.ownerId,'auth.password.change',current.ownerId);
     })();
-    res.cookie('ccm_session',token,{httpOnly:true,sameSite:'strict',secure:process.env.COOKIE_SECURE!=='false',maxAge:7*86400000,path:'/'});
+    res.cookie('ccm_session',token,{httpOnly:true,sameSite:'strict',secure:secureCookies(),maxAge:7*86400000,path:'/'});
     return {csrf};
   }
   logout(req: Request, res: Response) {

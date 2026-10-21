@@ -9,14 +9,25 @@ RUN npm ci
 COPY shared shared
 COPY server server
 COPY client client
-RUN npm run build && npm prune --omit=dev
+RUN npm run build
+
+# 运行时只需要服务端与 shared 的生产依赖，不含前端构建工具。
+FROM node:24-bookworm-slim AS deps
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+COPY shared/package.json shared/package.json
+COPY server/package.json server/package.json
+COPY client/package.json client/package.json
+RUN npm ci --omit=dev --workspace @ccm/server --workspace @ccm/shared
 
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 DATABASE_PATH=/data/ccm.db CLIENT_DIST=/app/client/dist
 WORKDIR /app/server
-COPY --from=build /app/node_modules /app/node_modules
+COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=build /app/shared /app/shared
 COPY --from=build /app/server/package.json ./package.json
+COPY --from=deps /app/server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/client/dist /app/client/dist
 RUN mkdir /data && chown node:node /data

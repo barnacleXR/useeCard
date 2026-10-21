@@ -10,24 +10,89 @@
 - **登录**：本地账号密码，可选 OIDC 单点登录；浏览器会话管理。
 - **接入**：iOS 原生 App（配对码登录）、只读 REST API（API Key）、MCP（供 Claude 等 AI 客户端，OAuth 授权）。
 
-## 部署（Docker Compose）
+## 安装
+
+需要 Docker（含 Compose v2），支持 x86_64 与 ARM64（如 Apple Silicon、树莓派、多数 NAS）。
+
+### 一键安装
 
 ```bash
-cp .env.example .env
-# 编辑 .env：把 BASE_URL 设为实例的实际 HTTPS 地址。
-docker compose up --build -d
+curl -fsSL https://raw.githubusercontent.com/barnacleXR/useeCard/main/install.sh | sh
 ```
 
-服务监听宿主机 `127.0.0.1:3090`，由你的反向代理转发 HTTPS。打开 `BASE_URL`，首次访问创建唯一的管理员账号（密码至少 12 位），然后添加扣款账户与信用卡。数据保存在数据卷 `/data`。
+脚本会在当前目录创建 `useecard/`，下载 `compose.yaml` 与 `.env`，询问访问地址后拉取镜像并启动。只想在本机试用时直接回车，然后打开 http://localhost:3090 。
 
-需要外部通知时用 `docker compose --profile notifications up --build -d` 启动随附的 Apprise，详见 [通知配置](docs/notifications.md)。
+也可以不经提问直接安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/barnacleXR/useeCard/main/install.sh | BASE_URL=https://card.example.com sh
+```
+
+### 手动安装
+
+```bash
+mkdir useecard && cd useecard
+curl -fsSLO https://raw.githubusercontent.com/barnacleXR/useeCard/main/compose.yaml
+curl -fsSL https://raw.githubusercontent.com/barnacleXR/useeCard/main/.env.example -o .env
+# 编辑 .env，把 BASE_URL 改为实例的访问地址
+docker compose up -d
+```
+
+首次打开访问地址时创建唯一的管理员账号（密码至少 12 位），然后添加扣款账户与信用卡。数据保存在 Docker 数据卷 `useecard-data` 中。
+
+### 正式部署：域名与 HTTPS
+
+服务默认只监听本机 `127.0.0.1:3090`，由反向代理提供 HTTPS。`.env` 中的 `BASE_URL` 必须与浏览器访问的地址完全一致（含 `https://`，不带结尾 `/`），修改后运行 `docker compose up -d` 生效。
+
+[Caddy](https://caddyserver.com/) 会自动申请并续期证书，`Caddyfile` 只需两行：
+
+```caddyfile
+card.example.com {
+	reverse_proxy 127.0.0.1:3090
+}
+```
+
+使用 Nginx 时转发到同一地址即可：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name card.example.com;
+    # ssl_certificate / ssl_certificate_key ...
+    client_max_body_size 100m;  # 上传备份恢复文件
+    location / {
+        proxy_pass http://127.0.0.1:3090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+不使用反向代理、只在可信局域网访问时，可在 `.env` 设置 `USEECARD_BIND=0.0.0.0`，并把 `BASE_URL` 设为 `http://<服务器 IP>:3090`。此时连接未加密，不建议暴露到公网；iOS App、MCP 与 OIDC 都需要 HTTPS。
+
+### 升级
+
+升级前建议先在 **设置 → 数据导出与备份** 下载一份完整备份。然后在安装目录运行：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+数据库结构会在启动时自动迁移。想固定版本时，在 `.env` 设置 `USEECARD_VERSION=1.0.0`（可用版本见 GitHub Releases）。
+
+### 外部通知
+
+需要 Telegram、Email 等外部通知时，在 `.env` 取消 `APPRISE_API_URL` 的注释，并用 `docker compose --profile notifications up -d` 启动随附的 Apprise，详见 [通知配置](docs/notifications.md)。
 
 ## 配置
 
 | 变量 | 说明 |
 |---|---|
-| `BASE_URL` | 必填。实例的公开地址，例如 `https://card.example.com`。 |
-| `COOKIE_SECURE` | 默认 `true`。仅在本机 HTTP 开发时设为 `false`。 |
+| `BASE_URL` | 必填。实例的访问地址，例如 `https://card.example.com`。 |
+| `USEECARD_VERSION` | 可选。镜像版本，默认 `latest`。 |
+| `USEECARD_BIND` / `USEECARD_PORT` | 可选。宿主机监听地址与端口，默认 `127.0.0.1` / `3090`。 |
+| `COOKIE_SECURE` | 可选。默认按 `BASE_URL` 是否为 HTTPS 自动判断。 |
 | `APPRISE_API_URL` | 可选。Apprise 无状态 `/notify` 地址；`APPRISE_API_USERNAME` / `APPRISE_API_PASSWORD` 用于 Basic Auth。 |
 | `OIDC_ISSUER` | 可选。设置即启用 OIDC 单点登录，见下文。 |
 | `CCM_API_RATE_LIMIT` | 可选。只读 REST API 每个 Key 每分钟的请求上限，默认 120。 |
@@ -38,7 +103,7 @@ docker compose up --build -d
 可接入任何提供发现文档的 OpenID Connect 提供方，例如 Pocket ID、Authelia、Authentik、Keycloak、Zitadel、Google。密码登录始终保留。
 
 1. 在提供方创建客户端，回调地址填 `BASE_URL` + `/api/auth/oidc/callback`，例如 `https://card.example.com/api/auth/oidc/callback`。
-2. 在 `.env` 设置并重启：
+2. 在 `.env` 设置后运行 `docker compose up -d`：
 
    | 变量 | 说明 |
    |---|---|
@@ -84,7 +149,7 @@ Web 登录、iOS 设备令牌、API Key 与 MCP 令牌互不通用。
 ```bash
 npm ci
 npm run build -w @ccm/shared
-COOKIE_SECURE=false BASE_URL=http://localhost:5173 npm run dev:server
+BASE_URL=http://localhost:5173 npm run dev:server
 ```
 
 另一个终端运行 `npm run dev:client`，打开 http://localhost:5173。SQLite 默认保存在 `server/.data/ccm.db`。

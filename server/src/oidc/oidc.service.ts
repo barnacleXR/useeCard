@@ -5,7 +5,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { OidcIdentityInfo, OidcStatus } from '@ccm/shared';
 import { AuthService } from '../auth/auth.service.js';
 import { DatabaseService } from '../database.js';
-import { RateLimitService } from '../common/security.js';
+import { RateLimitService, secureCookies } from '../common/security.js';
 import { allowsPlainHttp, readOidcConfig, type OidcConfig } from './oidc.config.js';
 
 const STATE_COOKIE = 'ccm_oidc_state';
@@ -94,7 +94,7 @@ export class OidcService {
     if (this.flows.size >= MAX_FLOWS) this.flows.delete(this.flows.keys().next().value!);
     this.flows.set(state, {...flow, nonce, verifier, expiresAt: Date.now() + FLOW_TTL_MS});
     // 回调是来自提供方的跨站跳转，SameSite=Strict 的 Cookie 不会携带，因此 state Cookie 使用 Lax。
-    res.cookie(STATE_COOKIE, state, {httpOnly: true, sameSite: 'lax', secure: process.env.COOKIE_SECURE !== 'false', maxAge: FLOW_TTL_MS, path: COOKIE_PATH});
+    res.cookie(STATE_COOKIE, state, {httpOnly: true, sameSite: 'lax', secure: secureCookies(), maxAge: FLOW_TTL_MS, path: COOKIE_PATH});
     const url = new URL(doc.authorization_endpoint);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('client_id', config.clientId);
