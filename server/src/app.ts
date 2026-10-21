@@ -65,8 +65,23 @@ const OAUTH_PATHS = ['/authorize', '/token', '/register', '/revoke', '/mcp'];
 const isOAuthPath = (path: string) => OAUTH_PATHS.includes(path) || path.startsWith('/.well-known/oauth-');
 const WEB_PUBLIC = ['/api/health', '/api/auth/status', '/api/auth/setup', '/api/auth/login', '/api/auth/oidc/start', '/api/auth/oidc/callback'];
 
+/**
+ * 反向代理信任范围（Express trust proxy 语法）。默认信任本机与内网地址：
+ * 经 Caddy/Nginx 或 Docker 端口转发进来的请求按 X-Forwarded-For 取访客真实 IP，用于登录限流。
+ * 直接暴露端口给不可信网络时应设为 false。
+ */
+export function trustProxySetting(raw = process.env.TRUST_PROXY): boolean | number | string {
+  const value = (raw ?? '').trim();
+  if (!value) return 'loopback, linklocal, uniquelocal';
+  if (/^(false|0|off|no)$/i.test(value)) return false;
+  if (/^(true|on|yes)$/i.test(value)) return true;
+  if (/^\d+$/.test(value)) return Number(value);
+  return value;
+}
+
 export async function createApp() {
   const app = await NestFactory.create(AppModule, {logger: false, bodyParser: false});
+  (app.getHttpAdapter().getInstance() as express.Application).set('trust proxy', trustProxySetting());
   const maintenance = app.get(MaintenanceService);
   const auth = app.get(AuthService); const devices = app.get(DevicesService); const apiKeys = app.get(ApiKeysService);
   const oauth = app.get(OAuthService); const mcp = app.get(McpService);

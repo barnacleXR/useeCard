@@ -96,6 +96,7 @@ docker compose up -d
 | `APPRISE_API_URL` | 可选。Apprise 无状态 `/notify` 地址；`APPRISE_API_USERNAME` / `APPRISE_API_PASSWORD` 用于 Basic Auth。 |
 | `OIDC_ISSUER` | 可选。设置即启用 OIDC 单点登录，见下文。 |
 | `CCM_API_RATE_LIMIT` | 可选。只读 REST API 每个 Key 每分钟的请求上限，默认 120。 |
+| `TRUST_PROXY` | 可选。信任哪些反向代理传来的 `X-Forwarded-For`，用于按访客真实 IP 限流。默认信任本机与内网地址（`loopback, linklocal, uniquelocal`），适用于 Caddy、Nginx 或 Docker 端口转发；端口直接暴露给不可信网络时设为 `false`。 |
 | `BACKUP_DIR` | 可选。备份目录，默认数据库所在目录下的 `backups/`（容器内为 `/data/backups`）。 |
 
 ## 单点登录（OIDC）
