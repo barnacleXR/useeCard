@@ -1,0 +1,25 @@
+{
+  "name": "useecard",
+  "private": true,
+  "license": "MIT",
+  "version": "2.0.0",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ccm/shared && npm run build -w @ccm/server && npm run build -w @ccm/client",
+    "dev:server": "npm run build -w @ccm/shared && npm run dev -w @ccm/server",
+    "dev:client": "npm run dev -w @ccm/client",
+    "test": "npm run build -w @ccm/shared && TSX_TSCONFIG_PATH=server/tsconfig.json node --import tsx --test shared/test/*.test.ts server/test/*.test.ts",
+    "typecheck": "npm run build -w @ccm/shared && npm run typecheck -w @ccm/server && npm run typecheck -w @ccm/client"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "prettier": "3.6.2",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}

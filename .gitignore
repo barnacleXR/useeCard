@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.data/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+xcuserdata/
+*.xcuserstate
+ios/build/
+DerivedData/
+
+# 完整备份含账号资料，不纳入版本控制。
+backups/
+*.backup.json

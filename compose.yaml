@@ -1,0 +1,34 @@
+services:
+  ccm:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:3090:3000"
+    environment:
+      BASE_URL: ${BASE_URL:?请设置实际 HTTPS 地址}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      APPRISE_API_URL: ${APPRISE_API_URL:-}
+      APPRISE_API_USERNAME: ${APPRISE_API_USERNAME:-}
+      APPRISE_API_PASSWORD: ${APPRISE_API_PASSWORD:-}
+      CCM_API_RATE_LIMIT: ${CCM_API_RATE_LIMIT:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_NAME: ${OIDC_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+    volumes:
+      - ccm-data:/data
+  apprise:
+    image: caronc/apprise@sha256:0b2913b15c8eb47c25345722985ffbfae701326edde21909c205d296d62dd52c
+    profiles: [notifications]
+    restart: unless-stopped
+    environment:
+      APPRISE_STATEFUL_MODE: disabled
+      APPRISE_WORKER_COUNT: 1
+      APPRISE_ATTACH_SIZE: 0
+      TZ: Asia/Tokyo
+    # 只供同一 Compose 网络内的 useeCard 访问，不开放宿主机端口。
+volumes:
+  ccm-data:
