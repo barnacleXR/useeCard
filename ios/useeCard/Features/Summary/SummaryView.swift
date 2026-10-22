@@ -194,18 +194,19 @@ struct BillTile: View {
 }
 
 /// 浮动的月份切换器：自定义浮动控件使用 Liquid Glass，多个玻璃元素放进同一容器。
+/// plain 按钮只有可见像素可点，用 contentShape 让整个圆形都能点击。
 struct MonthSwitcher: View {
     @Environment(AppModel.self) private var model
     var body: some View {
         GlassEffectContainer(spacing: 8) {
             HStack(spacing: 8) {
-                Button { Task { await model.changeMonth(by: -1) } } label: { Image(systemName: "chevron.left").frame(width: 36, height: 36) }
+                Button { Task { await model.changeMonth(by: -1) } } label: { Image(systemName: "chevron.left").frame(width: 36, height: 36).contentShape(Circle()) }
                     .glassEffect(.regular.interactive(), in: Circle())
                     .accessibilityLabel("上个月")
                 Text(model.month.label).font(.subheadline.weight(.semibold).monospacedDigit())
                     .padding(.horizontal, 16).frame(height: 36)
                     .glassEffect(.regular, in: Capsule())
-                Button { Task { await model.changeMonth(by: 1) } } label: { Image(systemName: "chevron.right").frame(width: 36, height: 36) }
+                Button { Task { await model.changeMonth(by: 1) } } label: { Image(systemName: "chevron.right").frame(width: 36, height: 36).contentShape(Circle()) }
                     .glassEffect(.regular.interactive(), in: Circle())
                     .accessibilityLabel("下个月")
             }

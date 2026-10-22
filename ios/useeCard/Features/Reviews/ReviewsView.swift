@@ -19,11 +19,11 @@ struct ReviewsView: View {
         List(selection: $selection) {
             Section {
                 HStack {
-                    Button { Task { await model.changeReviewMonth(by: -1) } } label: { Image(systemName: "chevron.left") }
+                    Button { Task { await model.changeReviewMonth(by: -1) } } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     Spacer()
                     Text(model.reviewMonth.label).font(.headline)
                     Spacer()
-                    Button { Task { await model.changeReviewMonth(by: 1) } } label: { Image(systemName: "chevron.right") }
+                    Button { Task { await model.changeReviewMonth(by: 1) } } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44).contentShape(Rectangle()) }
                 }
                 .buttonStyle(.borderless)
             } footer: {

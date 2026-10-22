@@ -147,9 +147,12 @@ final class AppModel {
     func reloadMonth() async {
         guard let api else { return }
         do {
-            async let summaryTask: FundingSummary = api.get("/summary", query: ["dueMonth": month.string])
-            async let billsTask: [Bill] = api.get("/bills", query: ["dueMonth": month.string])
+            let requested = month
+            async let summaryTask: FundingSummary = api.get("/summary", query: ["dueMonth": requested.string])
+            async let billsTask: [Bill] = api.get("/bills", query: ["dueMonth": requested.string])
             let (freshSummary, freshBills) = try await (summaryTask, billsTask)
+            // 连续切换月份时，较早发出的请求可能后返回；只采用当前月份的结果。
+            guard requested == month else { return }
             summary = freshSummary; bills = freshBills
             isOffline = false
             saveSnapshot()
@@ -159,7 +162,12 @@ final class AppModel {
     func changeReviewMonth(by delta: Int) async {
         reviewMonth = reviewMonth.shifted(by: delta)
         guard let api else { return }
-        do { reviews = try await api.get("/reviews", query: ["reviewMonth": reviewMonth.string]); saveSnapshot() } catch { handle(error) }
+        let requested = reviewMonth
+        do {
+            let fresh: [Review] = try await api.get("/reviews", query: ["reviewMonth": requested.string])
+            guard requested == reviewMonth else { return }
+            reviews = fresh; saveSnapshot()
+        } catch { handle(error) }
     }
 
     func monthlyReport(_ month: MonthKey) async throws -> MonthlyReport {
