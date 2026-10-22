@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { AuthRequest } from '../auth/auth.service.js';
 import { BackupService } from './backup.service.js';
@@ -15,6 +15,10 @@ export class DataController {
   @Get('backups') status() { return this.backups.status(); }
   @Post('backups') create(@Req() req: AuthRequest) { return this.backups.create(req.ownerId); }
   @Get('backups/:id') download(@Param('id') id: string, @Res() res: Response) { res.download(this.backups.file(id),id); }
+  @Delete('backups/:id') delete(@Req() req:AuthRequest,@Param('id') id:string) {return this.backups.delete(req.ownerId,id);}
   @Post('schedule') schedule(@Req() req: AuthRequest, @Body() body: unknown) { return this.backups.saveSchedule(req.ownerId,body); }
   @Post('restore') restore(@Req() req: AuthRequest, @Body() body: unknown) { return this.backups.restore(req.ownerId,body); }
+  @Post('restore-uploads') startUpload(@Req() req:AuthRequest,@Body() body:unknown) {return this.backups.startUpload(req.ownerId,body);}
+  @Put('restore-uploads/:id') uploadChunk(@Req() req:AuthRequest,@Param('id') id:string,@Query('offset') offset:string) {return this.backups.uploadChunk(req.ownerId,id,Number(offset),req);}
+  @Post('restore-uploads/:id/finish') finishUpload(@Req() req:AuthRequest,@Param('id') id:string,@Body() body:{password:string}) {return this.backups.finishUpload(req.ownerId,id,body.password);}
 }

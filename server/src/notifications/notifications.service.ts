@@ -12,11 +12,13 @@ const querySchema=z.object({page:z.coerce.number().int().min(1).max(100000).defa
 @Injectable()
 export class NotificationsService implements OnModuleInit,OnModuleDestroy {
   private timer?:ReturnType<typeof setInterval>;
+  lastTickAt=Date.now();
   constructor(@Inject(LedgerService) private readonly ledger:LedgerService,@Inject(BillsService) private readonly bills:BillsService,@Inject(SettingsService) private readonly settings:SettingsService,@Inject(MaintenanceService) private readonly maintenance:MaintenanceService){}
   private get db(){return this.ledger.db;}
   onModuleInit(){this.tick();this.timer=setInterval(()=>this.tick(),30_000);this.timer.unref();}
   onModuleDestroy(){if(this.timer)clearInterval(this.timer);}
   private tick(){
+    this.lastTickAt=Date.now();
     if(this.maintenance.restoring)return;
     for(const {id} of this.db.prepare('SELECT id FROM users').all() as {id:string}[]){
       try{this.sync(id);}catch(error){console.error('站内通知更新失败',error);}
@@ -26,7 +28,7 @@ export class NotificationsService implements OnModuleInit,OnModuleDestroy {
     const stamp=now.toISOString(),today=japanToday(now),time=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
     const preferences=this.settings.preferences(owner);
     const groups=new Map<string,{kind:'upcoming'|'overdue';payload:Payload;members:string[]}>();
-    const external=!!this.db.prepare('SELECT 1 FROM notification_channels WHERE ownerId=? AND enabled=1 AND archivedAt IS NULL LIMIT 1').get(owner);
+    const external=!!this.db.prepare('SELECT 1 FROM notification_channels WHERE ownerId=? AND enabled=1 AND archivedAt IS NULL LIMIT 1').get(owner)||!!this.db.prepare('SELECT 1 FROM push_subscriptions WHERE userId=? LIMIT 1').get(owner);
     if(preferences.inAppNotifications||external)for(const bill of this.bills.bills(owner,{status:'pending',to:addDays(today,preferences.reminderDaysBefore)})){
       const kind=bill.dueDate<today?'overdue':'upcoming';
       const notifyDate=addDays(bill.dueDate,-preferences.reminderDaysBefore);

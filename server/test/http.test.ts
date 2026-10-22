@@ -44,11 +44,12 @@ test('v1 数据库逐级升级到最新：保留数据，补齐版本、备注�
     const upgraded=new DatabaseService(file);
     try{
       assert.deepEqual(upgraded.db.prepare('SELECT name,note,version,sortOrder FROM credit_cards').get(),{name:'旧卡',note:'',version:1,sortOrder:1});
-      assert.equal((upgraded.db.prepare('SELECT max(version) AS v FROM schema_migrations').get() as {v:number}).v,11);
+      assert.equal((upgraded.db.prepare('SELECT max(version) AS v FROM schema_migrations').get() as {v:number}).v,12);
       assert.ok(upgraded.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'").get());
       assert.deepEqual(upgraded.db.prepare('SELECT brand,iconAssetId FROM credit_cards').get(),{brand:'',iconAssetId:null});
       assert.deepEqual(upgraded.db.prepare('SELECT reminderDaysBefore,reminderTime FROM users').get(),{reminderDaysBefore:1,reminderTime:'09:00'});
       assert.ok(upgraded.db.prepare("SELECT value FROM instance_settings WHERE key='instanceId'").get());
+      assert.equal(JSON.parse((upgraded.db.prepare("SELECT value FROM instance_settings WHERE key='backupSchedule'").get() as {value:string}).value).frequency,'off','已有实例升级后自动备份保持关闭');
       assert.equal((upgraded.db.prepare('SELECT version FROM bank_accounts').get() as {version:number}).version,1);
     }finally{upgraded.close();}
     new DatabaseService(file).close();

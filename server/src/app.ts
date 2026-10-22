@@ -49,10 +49,17 @@ import { oauthClientAuth } from './oauth/client-auth.middleware.js';
 import { McpService } from './mcp/mcp.service.js';
 import { OidcController } from './oidc/oidc.controller.js';
 import { OidcService } from './oidc/oidc.service.js';
+import { auditContext, requestLocation, type AuditSource } from './common/audit-context.js';
+import { ProfileController } from './profile/profile.controller.js';
+import { PushController } from './notifications/push.controller.js';
+import { PushService } from './notifications/push.service.js';
+import { SystemController } from './system/system.controller.js';
+import { SystemService } from './system/system.service.js';
+import { OfflineController } from './offline/offline.controller.js';
 
 @Module({
-  controllers: [OidcController, OAuthController, ApiKeysController, PublicApiController, ChannelsController, NotificationsController, AuditController, DataController, AuthController, AppAuthController, DevicesController, AssetsController, AccountsController, BillsController, ReviewsController, ReportsController, SettingsController],
-  providers: [OidcService, OAuthService, McpService, ApiKeysService, AppriseService, NotificationsService, MaintenanceService, BackupService, ExportService, DatabaseService, LedgerService, RateLimitService, {provide: SafeFetchService, useFactory: () => new SafeFetchService()}, AuthService, DevicesService, AssetsService, BanksService, AccountsService, BillsService, ReviewsService, ReportsService, RemindersService, SettingsService],
+  controllers: [OfflineController,SystemController,PushController,ProfileController, OidcController, OAuthController, ApiKeysController, PublicApiController, ChannelsController, NotificationsController, AuditController, DataController, AuthController, AppAuthController, DevicesController, AssetsController, AccountsController, BillsController, ReviewsController, ReportsController, SettingsController],
+  providers: [SystemService,PushService,OidcService, OAuthService, McpService, ApiKeysService, AppriseService, NotificationsService, MaintenanceService, BackupService, ExportService, DatabaseService, LedgerService, RateLimitService, {provide: SafeFetchService, useFactory: () => new SafeFetchService()}, AuthService, DevicesService, AssetsService, BanksService, AccountsService, BillsService, ReviewsService, ReportsService, RemindersService, SettingsService],
 })
 class AppModule {}
 
@@ -85,10 +92,15 @@ export async function createApp() {
   const maintenance = app.get(MaintenanceService);
   const auth = app.get(AuthService); const devices = app.get(DevicesService); const apiKeys = app.get(ApiKeysService);
   const oauth = app.get(OAuthService); const mcp = app.get(McpService);
+  app.use((req: Request, _res: Response, next: () => void) => {
+    const source: AuditSource = req.path.startsWith(APP_PREFIX) ? 'ios' : req.path.startsWith(V1_PREFIX) ? 'rest' : req.path.startsWith('/mcp') || isOAuthPath(req.path) ? 'mcp' : 'web';
+    const authMethod = source === 'ios' ? 'device' : source === 'rest' ? 'api_key' : source === 'mcp' ? 'oauth' : 'session';
+    auditContext.run({source,authMethod,ip:req.ip || '',userAgent:String(req.headers['user-agent'] || '').slice(0,300),location:requestLocation(req.headers, process.env.AUDIT_TRUST_COUNTRY_HEADER === 'true' && req.ip !== req.socket.remoteAddress)}, next);
+  });
   // 图标上传为 base64 data URL（图片上限 512 KB），仅该接口放宽请求体。
   app.use(['/api/assets', '/api/app/v1/assets'], express.json({limit: '1mb'}));
   const json = express.json({limit: '128kb'});
-  app.use((req: Request, res: Response, next: () => void) => req.path === '/api/data/restore' ? next() : json(req,res,next));
+  app.use((req: Request, res: Response, next: () => void) => req.path === '/api/data/restore' || req.path === '/api/profile/avatar' ? next() : json(req,res,next));
   app.use((req: AuthRequest, res: Response, next: (error?: unknown) => void) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
@@ -122,7 +134,7 @@ export async function createApp() {
     }
     // Web：只认 HttpOnly 会话 Cookie，写操作校验 CSRF。
     if (WEB_PUBLIC.includes(req.path)) { next(); return; }
-    try { req.ownerId = auth.authenticate(req, write).ownerId; next(); }
+    try { req.ownerId = auth.authenticate(req, write, res).ownerId; next(); }
     catch (error) { const status = 403 === (error as HttpException).getStatus?.() ? 403 : 401; if (status === 401) res.setHeader('X-CCM-Session-Expired','1'); res.status(status).json({message: (error as Error).message}); }
   });
   // MCP 授权服务器（授权码 + PKCE、动态注册、元数据）与受保护资源 /mcp。
@@ -137,8 +149,9 @@ export async function createApp() {
     // 无状态模式：不提供 SSE 流与会话删除。
     res.setHeader('Allow', 'POST'); res.status(405).json({jsonrpc: '2.0', error: {code: -32000, message: 'Method not allowed'}, id: null});
   }, bearer, (req: Request, res: Response) => { void mcp.handle(req, res).catch(() => { if (!res.headersSent) res.status(500).json({jsonrpc: '2.0', error: {code: -32603, message: 'Internal error'}, id: null}); }); });
-  // 恢复请求先验证会话和 CSRF，再接收最多约 86 MB 的备份封装。
+  // 大请求体（恢复封装约 86 MB、头像 8 MB）在会话与 CSRF 校验之后再解析。
   app.use('/api/data/restore',express.json({limit:'90mb'}));
+  app.use('/api/profile/avatar',express.json({limit:'8mb'}));
   app.useGlobalFilters(new Errors());
   const client = resolve(process.env.CLIENT_DIST || '../client/dist');
   if (existsSync(client)) {

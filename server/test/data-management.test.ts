@@ -11,6 +11,7 @@ import {BackupService} from '../src/data-management/backup.service.js';
 import {ExportService} from '../src/data-management/export.service.js';
 import {MaintenanceService} from '../src/data-management/maintenance.service.js';
 import {LedgerService} from '../src/common/ledger.service.js';
+import {legacyFromArchive,legacyFromFile} from './backup-fixture.js';
 
 const password='test-password-123456';
 async function fixture() {
@@ -55,7 +56,7 @@ test('完整备份：在线快照包含 WAL；恢复保留金额/图标/检查�
     const notification=await (await f.request('/notifications/test','POST',{})).json() as {id:string};
     await f.request('/notifications/read','POST',{items:[{id:notification.id,version:1}]});
     const created=await f.request('/data/backups','POST',{});assert.equal(created.status,201);const meta=await created.json() as {id:string};
-    const backup=await (await f.request('/data/backups/'+meta.id)).json() as any;assert.equal(backup.meta.counts.bills,2);assert.equal(backup.meta.counts.sessions,1);
+    const backup=legacyFromArchive(Buffer.from(await (await f.request('/data/backups/'+meta.id)).arrayBuffer())) as any;assert.equal(backup.meta.counts.bills,2);assert.equal(backup.meta.counts.sessions,1);
     await f.request('/bills','POST',{...f.input,amountMinor:999},{'Idempotency-Key':randomUUID()});
     const failed=await f.request('/data/restore','POST',{backup,password:'wrong'});assert.equal(failed.status,401);assert.equal((f.db.prepare('SELECT count(*) AS n FROM bills').get() as any).n,3);
     const restored=await f.request('/data/restore','POST',{backup,password});assert.equal(restored.status,201,await restored.clone().text());const result=await restored.json() as {safetyBackup:string};
@@ -67,7 +68,7 @@ test('完整备份：在线快照包含 WAL；恢复保留金额/图标/检查�
     assert.ok((f.db.prepare('SELECT readAt FROM notifications WHERE id=?').get(notification.id) as any).readAt,'通知已读状态随备份保留');
     assert.equal((await f.request('/accounts')).status,401);
     assert.equal((await fetch(f.url+'/api/app/v1/accounts',{headers:{Authorization:'Bearer '+login.accessToken}})).status,401);
-    const safety=JSON.parse(readFileSync(join(f.dir,'backups',result.safetyBackup),'utf8'));assert.equal(safety.meta.counts.bills,3);
+    const safety=legacyFromFile(join(f.dir,'backups',result.safetyBackup));assert.equal((safety.meta as any).counts.bills,3);
     const relogin=await f.request('/auth/login','POST',{username:'owner',password});assert.equal(relogin.status,201);
     assert.equal(f.app.get(BackupService).schedule().frequency,'off');assert.deepEqual(f.db.pragma('foreign_key_check'),[]);
   }finally{await f.cleanup();}
@@ -75,7 +76,7 @@ test('完整备份：在线快照包含 WAL；恢复保留金额/图标/检查�
 
 test('恢复校验：损坏、跨版本、篡改结构/数量拒绝；事务中途失败回滚当前数据',async()=>{
   const f=await fixture();try{
-    const service=f.app.get(BackupService);const meta=await service.create(f.owner);const backup=JSON.parse(readFileSync(service.file(meta.id),'utf8'));
+    const service=f.app.get(BackupService);const meta=await service.create(f.owner);const backup=legacyFromFile(service.file(meta.id));
     await assert.rejects(service.restore(f.owner,{password,backup:{...backup,meta:{...backup.meta,sha256:'0'.repeat(64)}}}),/校验和/);
     await assert.rejects(service.restore(f.owner,{password,backup:{...backup,meta:{...backup.meta,schemaVersion:999}}}),/版本/);
     await assert.rejects(service.restore(f.owner,{password,backup:{...backup,meta:{...backup.meta,counts:{...backup.meta.counts,bills:999}}}}),/数量/);
@@ -111,7 +112,7 @@ test('自动备份：日本时间调度、每日/每周、重启去重、保留�
 
 test('完整备份可恢复到另一个干净实例，使用备份中的管理员登录',async()=>{
   const first=await fixture();let backup:any;let originalInstance:string;
-  try{const b=first.app.get(BackupService),meta=await b.create(first.owner);backup=JSON.parse(readFileSync(b.file(meta.id),'utf8'));originalInstance=(first.db.prepare("SELECT value FROM instance_settings WHERE key='instanceId'").get() as any).value;}finally{await first.cleanup();}
+  try{const b=first.app.get(BackupService),meta=await b.create(first.owner);backup=legacyFromFile(b.file(meta.id));originalInstance=(first.db.prepare("SELECT value FROM instance_settings WHERE key='instanceId'").get() as any).value;}finally{await first.cleanup();}
   const fresh=await fixture();try{
     fresh.db.prepare('DELETE FROM review_bill_links').run();fresh.db.prepare('DELETE FROM card_reviews').run();fresh.db.prepare('DELETE FROM review_periods').run();fresh.db.prepare('DELETE FROM bills').run();fresh.db.prepare('DELETE FROM credit_cards').run();fresh.db.prepare('DELETE FROM bank_accounts').run();
     const res=await fresh.request('/data/restore','POST',{password,backup});assert.equal(res.status,201,await res.clone().text());

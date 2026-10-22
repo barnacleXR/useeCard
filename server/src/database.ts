@@ -129,6 +129,26 @@ export class DatabaseService {
           linkedAt TEXT NOT NULL, lastLoginAt TEXT, UNIQUE(issuer,subject));
         INSERT INTO schema_migrations(version) VALUES(11);`);
     })();
+    // v12：管理审计、滑动会话和单管理员资料；旧会话继续使用原过期时间。
+    if (!this.db.prepare('SELECT 1 FROM schema_migrations WHERE version=12').get()) this.db.transaction(() => {
+      this.db.exec(`ALTER TABLE audit_events ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown';
+        ALTER TABLE audit_events ADD COLUMN outcome TEXT NOT NULL DEFAULT 'success';
+        ALTER TABLE audit_events ADD COLUMN authMethod TEXT NOT NULL DEFAULT '';
+        ALTER TABLE audit_events ADD COLUMN ip TEXT NOT NULL DEFAULT '';
+        ALTER TABLE audit_events ADD COLUMN userAgent TEXT NOT NULL DEFAULT '';
+        ALTER TABLE audit_events ADD COLUMN location TEXT NOT NULL DEFAULT '';
+        CREATE INDEX audit_outcome_date ON audit_events(outcome,createdAt);
+        ALTER TABLE sessions ADD COLUMN rolling INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE users ADD COLUMN displayName TEXT NOT NULL DEFAULT '';
+        ALTER TABLE users ADD COLUMN contactEmail TEXT NOT NULL DEFAULT '';
+        ALTER TABLE users ADD COLUMN avatar BLOB;
+        CREATE TABLE push_subscriptions(id TEXT PRIMARY KEY,userId TEXT NOT NULL REFERENCES users(id),endpointHash TEXT NOT NULL UNIQUE,payload TEXT NOT NULL,createdAt TEXT NOT NULL,lastSuccessAt TEXT);
+        CREATE TABLE push_deliveries(subscriptionId TEXT NOT NULL REFERENCES push_subscriptions(id) ON DELETE CASCADE,notificationId TEXT NOT NULL,version INTEGER NOT NULL,PRIMARY KEY(subscriptionId,notificationId,version));
+        CREATE TABLE system_alerts(key TEXT PRIMARY KEY,severity TEXT NOT NULL,message TEXT NOT NULL,active INTEGER NOT NULL,lastSentAt TEXT,changedAt TEXT NOT NULL);
+        INSERT INTO schema_migrations(version) VALUES(12);`);
+      // 默认计划改为每日后，已有实例未保存过计划时显式保留原来的“关闭”。
+      if (this.db.prepare('SELECT 1 FROM users LIMIT 1').get()) this.db.prepare('INSERT OR IGNORE INTO instance_settings(key,value) VALUES(?,?)').run('backupSchedule', JSON.stringify({frequency: 'off', time: '03:00', weekday: 0, retentionDays: 30}));
+    })();
     this.db.prepare('INSERT OR IGNORE INTO instance_settings VALUES(?,?)').run('instanceId', randomUUID());
   }
   close() { this.db.close(); }

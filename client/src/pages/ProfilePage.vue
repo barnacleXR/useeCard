@@ -1,0 +1,11 @@
+<script setup lang="ts">
+import {onMounted,ref} from 'vue';
+import PageShell from '../components/PageShell.vue';import SecurityPanel from '../components/SecurityPanel.vue';import {api} from '../api';
+interface Profile {username:string;displayName:string;contactEmail:string;hasAvatar:number;emailVerified:boolean}
+const profile=ref<Profile>(),error=ref(''),saved=ref(''),avatarVersion=ref(Date.now());
+onMounted(async()=>{try{profile.value=await api('/profile');}catch(e){error.value=(e as Error).message;}});
+async function save(){if(!profile.value)return;error.value='';try{profile.value=await api('/profile','PATCH',{displayName:profile.value.displayName,contactEmail:profile.value.contactEmail});saved.value='资料已保存';}catch(e){error.value=(e as Error).message;}}
+async function upload(event:Event){const file=(event.target as HTMLInputElement).files?.[0];if(!file)return;error.value='';if(file.size>5*1024*1024){error.value='头像不能超过 5 MB';return;}try{const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});await api('/profile/avatar','POST',{data});avatarVersion.value=Date.now();if(profile.value)profile.value.hasAvatar=1;saved.value='头像已更新';}catch(e){error.value=(e as Error).message;}}
+</script>
+<template><PageShell :entry="false"><section class="panel"><h2>个人资料</h2><form v-if="profile" class="form-grid" @submit.prevent="save"><img v-if="profile.hasAvatar" :src="`/api/profile/avatar?v=${avatarVersion}`" class="profile-avatar" alt="头像"><label>头像（PNG、JPEG、WebP，最多 5 MB）<input type="file" accept="image/png,image/jpeg,image/webp" @change="upload"></label><label>用户名<input :value="profile.username" disabled></label><label>显示名称<input v-model="profile.displayName" maxlength="80"></label><label>联系邮箱<input v-model="profile.contactEmail" type="email" maxlength="254"></label><p class="muted full">联系邮箱尚未验证，仅供展示和联系；不用于找回账号或 OIDC 自动绑定。</p><button class="primary">保存资料</button></form><p v-if="saved" role="status">{{saved}}</p><p v-if="error" class="error" role="alert">{{error}}</p><hr><SecurityPanel/></section></PageShell></template>
+<style scoped>.profile-avatar{width:5rem;height:5rem;border-radius:50%;object-fit:cover}</style>

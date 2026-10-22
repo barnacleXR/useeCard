@@ -13,6 +13,7 @@ type Delivery={id:string;ownerId:string;channelId:string;notificationId:string|n
 @Injectable()
 export class AppriseService implements OnModuleInit,OnModuleDestroy {
   private timer?:ReturnType<typeof setInterval>;private running?:Promise<void>;private stopping=false;
+  lastTickAt=Date.now();
   constructor(@Inject(LedgerService) private readonly ledger:LedgerService,@Inject(NotificationsService) private readonly notifications:NotificationsService,@Inject(MaintenanceService) private readonly maintenance:MaintenanceService){}
   private get db(){return this.ledger.db;}
   private endpoint(){
@@ -68,6 +69,11 @@ export class AppriseService implements OnModuleInit,OnModuleDestroy {
       if(status!==200)throw new BadGatewayException(`Apprise 未确认投递成功（HTTP ${status}），请检查通道配置`);
     }catch(error){if(error instanceof BadGatewayException)throw error;throw new BadGatewayException('Apprise 连接失败或超时，请检查服务和通道配置');}
   }
+  async sendSystem(title:string,body:string){
+    if(!process.env.APPRISE_API_URL)return;
+    const rows=this.db.prepare('SELECT url FROM notification_channels WHERE enabled=1 AND archivedAt IS NULL').all() as {url:string}[];
+    await Promise.allSettled(rows.map(row=>this.send(row.url,title,body)));
+  }
   async test(owner:string,body:unknown){
     const input=z.union([z.object({url:urlSchema}).strict(),z.object({channelId:z.string().uuid()}).strict()]).parse(body);
     const channel='channelId' in input?this.channel(owner,input.channelId):undefined;
@@ -93,6 +99,7 @@ export class AppriseService implements OnModuleInit,OnModuleDestroy {
     this.ledger.audit(owner,'notify.retry',id,{});return {ok:true};
   }
   run(){
+    this.lastTickAt=Date.now();
     if(this.running||this.stopping||!process.env.APPRISE_API_URL)return this.running||Promise.resolve();
     const release=this.maintenance.background();if(!release)return Promise.resolve();
     this.running=this.deliver().catch(()=>{console.error('Apprise 后台投递检查失败');}).finally(()=>{release();this.running=undefined;});return this.running;

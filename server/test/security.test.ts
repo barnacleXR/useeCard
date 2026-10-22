@@ -43,7 +43,7 @@ test('密码轮换撤销其他会话、设备和配对码，审计筛选分页�
   assert.equal((db.prepare('SELECT count(*) n FROM device_sessions WHERE revokedAt IS NULL').get() as any).n,0);
   assert.equal((db.prepare('SELECT count(*) n FROM pairing_codes').get() as any).n,0);
   const owner=(db.prepare('SELECT id FROM users').get() as any).id;
-  const insert=db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)');
+  const insert=db.prepare('INSERT INTO audit_events(id,ownerId,action,entityId,changes,createdAt) VALUES(?,?,?,?,?,?)');
   insert.run(randomUUID(),owner,'test.boundary','test',JSON.stringify({nested:{password:'DO-NOT-LEAK',csrf:'HIDDEN',name:'visible'}}),'2026-10-20T15:00:00.000Z');
   insert.run(randomUUID(),owner,'test.boundary','before','{}','2026-10-20T14:59:59.999Z');
   insert.run(randomUUID(),'someone-else','test.boundary','other','{}','2026-10-20T15:00:00.000Z');

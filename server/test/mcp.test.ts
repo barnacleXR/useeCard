@@ -9,6 +9,7 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 import {createApp} from '../src/app.js';
 import {DatabaseService} from '../src/database.js';
 import {BackupService} from '../src/data-management/backup.service.js';
+import {legacyFromFile} from './backup-fixture.js';
 
 const RESOURCE='http://localhost:5173/mcp';
 const pkce=()=>{const verifier=randomBytes(32).toString('base64url');return {verifier,challenge:createHash('sha256').update(verifier).digest('base64url')};};
@@ -171,7 +172,7 @@ test('MCP：OAuth 元数据、动态登记、授权页、PKCE、按权限暴露�
   assert.equal((await connect(fresh.access_token).then(c=>c.listTools())).tools.map(t=>t.name).sort().join(),'get_bill,list_bills');
   const owner=(app.get(DatabaseService).db.prepare('SELECT id FROM users').get() as any).id;
   const backups=app.get(BackupService);const meta=await backups.create(owner);
-  await backups.restore(owner,{password:'a-good-password-123',backup:JSON.parse(readFileSync(backups.file(meta.id),'utf8'))});
+  await backups.restore(owner,{password:'a-good-password-123',backup:legacyFromFile(backups.file(meta.id))});
   await assert.rejects(connect(fresh.access_token),'恢复后令牌失效');
  }finally{await app.close();rmSync(dir,{recursive:true,force:true});}
 });

@@ -17,9 +17,13 @@ const routes = [
   {path: '/notifications', component: () => import('./pages/NotificationsPage.vue'), meta: {title: '通知', subtitle: '查看已录入账单的备款提醒与扣款日后待确认事项。'}},
   {path: '/audit', component: () => import('./pages/AuditPage.vue'), meta: {title: '操作记录', subtitle: '按操作与日本日期查询历史变更。'}},
   {path: '/settings', component: () => import('./pages/SettingsPage.vue'), meta: {title: '设置', subtitle: '管理你的自托管空间与个人偏好。'}},
+  {path: '/profile', component: () => import('./pages/ProfilePage.vue'), meta: {title: '个人中心', subtitle: '资料、密码、单点登录与浏览器会话。'}},
+  {path: '/backups', component: () => import('./pages/BackupPage.vue'), meta: {title: '备份管理', subtitle: '查看运行结果、下载或恢复完整备份。'}},
+  {path: '/system', component: () => import('./pages/SystemPage.vue'), meta: {title: '系统状态', subtitle: '查看健康状态、后台任务和告警。'}},
   {path: '/oauth/consent', component: () => import('./pages/ConsentPage.vue'), meta: {title: '授权连接', subtitle: ''}},
   {path: '/:pathMatch(.*)*', redirect: '/'},
 ];
 const router = createRouter({history: createWebHistory(), routes});
 router.afterEach(to => { document.title = `${to.meta.title || 'useeCard'} · useeCard`; });
 createApp(App).use(createPinia()).use(router).mount('#app');
+if('serviceWorker' in navigator)window.addEventListener('load',()=>{void navigator.serviceWorker.register('/sw.js');});

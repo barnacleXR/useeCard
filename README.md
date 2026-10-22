@@ -5,9 +5,10 @@
 - **备款汇总**：按账户、扣款日、币种汇总待扣款金额；逾期未确认的账单单独列出。
 - **账单**：多币种（最小货币单位整数存储）、已扣款 / 撤销 / 作废、日历与月报。
 - **月度检查**：逐卡核对；低频卡标记"本月无新增"，不生成零元账单。
-- **提醒**：站内通知，可选 Apprise 外部通知（Telegram、Email、Discord、Bark、ntfy 等）。
-- **数据**：业务 JSON / CSV 导出、在线完整备份、自动备份与恢复、操作记录。
-- **登录**：本地账号密码，可选 OIDC 单点登录；浏览器会话管理。
+- **提醒**：站内通知，可选 Apprise 外部通知和浏览器推送（Telegram、Email、Discord、Bark、ntfy 等）。
+- **数据**：业务 JSON / CSV 导出、流式完整备份、自动备份与恢复、可筛选的操作记录。
+- **登录与管理**：本地账号密码、可选 OIDC、30 天滑动浏览器会话、单管理员个人中心、系统状态与告警。
+- **安装与离线**：PWA 安装；明确同意后可在本机保存七天只读快照。
 - **接入**：iOS 原生 App（配对码登录）、只读 REST API（API Key）、MCP（供 Claude 等 AI 客户端，OAuth 授权）。
 
 ## 安装
@@ -59,7 +60,7 @@ server {
     listen 443 ssl;
     server_name card.example.com;
     # ssl_certificate / ssl_certificate_key ...
-    client_max_body_size 100m;  # 上传备份恢复文件
+    client_max_body_size 10m;  # 恢复文件按 8 MiB 分块上传
     location / {
         proxy_pass http://127.0.0.1:3090;
         proxy_set_header Host $host;
@@ -72,7 +73,7 @@ server {
 
 ### 升级
 
-升级前建议先在 **设置 → 数据导出与备份** 下载一份完整备份。然后在安装目录运行：
+升级前先在 **备份管理** 下载一份完整备份，并确认服务器磁盘有足够空间。然后在安装目录运行：
 
 ```bash
 docker compose pull
@@ -84,6 +85,14 @@ docker compose up -d
 ### 外部通知
 
 需要 Telegram、Email 等外部通知时，在 `.env` 取消 `APPRISE_API_URL` 的注释，并用 `docker compose --profile notifications up -d` 启动随附的 Apprise，详见 [通知配置](docs/notifications.md)。
+
+浏览器推送可单独启用。在服务器上生成密钥对，把输出的公钥和私钥分别填入 `.env` 的 `VAPID_PUBLIC_KEY` 与 `VAPID_PRIVATE_KEY`，并设置 `VAPID_SUBJECT=mailto:你的邮箱`，再执行 `docker compose up -d`：
+
+```bash
+docker compose exec useecard node -e "console.log(require('web-push').generateVAPIDKeys())"
+```
+
+管理员在 **设置 → 安装与离线** 为每个浏览器单独订阅。请妥善保存私钥；更换私钥会使已有订阅失效。
 
 ## 配置
 
@@ -97,7 +106,11 @@ docker compose up -d
 | `OIDC_ISSUER` | 可选。设置即启用 OIDC 单点登录，见下文。 |
 | `CCM_API_RATE_LIMIT` | 可选。只读 REST API 每个 Key 每分钟的请求上限，默认 120。 |
 | `TRUST_PROXY` | 可选。信任哪些反向代理传来的 `X-Forwarded-For`，用于按访客真实 IP 限流。默认信任本机与内网地址（`loopback, linklocal, uniquelocal`），适用于 Caddy、Nginx 或 Docker 端口转发；端口直接暴露给不可信网络时设为 `false`。 |
+| `AUDIT_TRUST_COUNTRY_HEADER` | 可选。仅当反向代理会覆盖客户端传入的 `CF-IPCountry` 头时设为 `true`，记录粗略国家代码；默认忽略。 |
 | `BACKUP_DIR` | 可选。备份目录，默认数据库所在目录下的 `backups/`（容器内为 `/data/backups`）。 |
+| `WEB_SESSION_IDLE_DAYS` | 可选。新浏览器会话的滑动闲置期限，默认 30 天；旧会话保持原到期时间。 |
+| `USEECARD_METRICS_PORT` | 可选。宿主机本机指标端口，默认 `127.0.0.1:3091`；只提供 `/metrics`，不要通过公开代理转发。 |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | 可选。浏览器推送密钥和联系人（如 `mailto:admin@example.com`）；未配置时订阅入口关闭。 |
 
 ## 单点登录（OIDC）
 
@@ -115,7 +128,7 @@ docker compose up -d
    | `OIDC_SCOPES` | 可选。默认 `openid profile email`，必须包含 `openid`。 |
    | `OIDC_REDIRECT_URI` | 可选。默认由 `BASE_URL` 生成，必须与其同源。 |
 
-3. 用密码登录 useeCard，进入 **设置 → 账号安全 → 单点登录（OIDC）**，点击"绑定"并在提供方完成登录。绑定后登录页出现"使用 … 登录"按钮。
+3. 用密码登录 useeCard，进入 **个人中心 → 单点登录（OIDC）**，点击"绑定"并在提供方完成登录。绑定后登录页出现"使用 … 登录"按钮。
 
 未绑定的外部身份不能登录，也不会自动创建账号。配置有误时登录页不显示 OIDC 按钮，设置页会显示具体原因，服务器日志记录每次失败的原因。
 
@@ -125,7 +138,7 @@ SwiftUI 原生客户端（iOS 26+），用 Xcode 打开 `ios/useeCard.xcodeproj`
 
 ## REST API
 
-只读接口 `/api/v1`，在 **设置 → 外部 API** 创建 API Key（只显示一次），以 `Authorization: Bearer <key>` 调用。接口文档：`/api/v1/openapi.json`（OpenAPI 3.1）。
+只读接口 `/api/v1`，在 **设置 → 外部连接 → 外部 API** 创建 API Key（只显示一次），以 `Authorization: Bearer <key>` 调用。接口文档：`/api/v1/openapi.json`（OpenAPI 3.1）。
 
 ```bash
 curl "https://card.example.com/api/v1/summary?dueMonth=2026-11" -H "Authorization: Bearer ccmk_..."
@@ -141,7 +154,9 @@ Web 登录、iOS 设备令牌、API Key 与 MCP 令牌互不通用。
 
 ## 备份与恢复
 
-在 **设置 → 数据导出与备份** 下载完整备份、设置自动备份或上传恢复，详见 [备份与恢复](docs/backup-restore.md)。不要直接复制运行中的数据库文件代替在线备份。
+在 **备份管理** 下载完整备份、设置自动备份或上传恢复。新实例默认每天 03:00（日本时间）自动备份；升级已有实例时保留原设置。详见 [备份与恢复](docs/backup-restore.md)。不要直接复制运行中的数据库文件代替在线备份。
+
+**系统状态**页显示版本、磁盘和数据库用量、备份任务、授权数及告警；系统告警可经已配置的 Apprise 通道和浏览器推送发送。指标只在宿主机 `127.0.0.1:3091/metrics` 提供。**设置 → 安装与离线** 可安装 PWA、订阅此浏览器推送；离线快照默认关闭，用户确认后才保存账户、卡片、账单金额与扣款日，最多 10 MB、七天有效。本机快照未加密，退出登录会清除。
 
 ## 本地开发
 
@@ -157,6 +172,7 @@ BASE_URL=http://localhost:5173 npm run dev:server
 
 ```bash
 npm test
+npm run typecheck
 npm run build
 ```
 

@@ -6,14 +6,15 @@ import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import PageShell from '../components/PageShell.vue';
 import NotificationChannels from '../components/NotificationChannels.vue';
-import SecurityPanel from '../components/SecurityPanel.vue';
 import DevicesPanel from '../components/DevicesPanel.vue';
-import DataPanel from '../components/DataPanel.vue';
 import ApiKeysPanel from '../components/ApiKeysPanel.vue';
 import McpPanel from '../components/McpPanel.vue';
+import ConnectivityPanel from '../components/ConnectivityPanel.vue';
 import ThemeColorSelect from '../components/ThemeColorSelect.vue';
 import TimeInput from '../components/fields/TimeInput.vue';
 const store = useWorkspace();
+const section=ref<'general'|'notifications'|'connections'|'devices'|'offline'>('general');
+const sections=[{id:'general',name:'一般'},{id:'notifications',name:'通知'},{id:'connections',name:'外部连接'},{id:'devices',name:'设备'},{id:'offline',name:'安装与离线'}] as const;
 const currencyItems = Object.keys(currencies).map(value => ({value, label: value}));
 const notificationItems = [{value: 'true', label: '开启'}, {value: 'false', label: '关闭'}];
 const reminder = ref({reminderDaysBefore: 1, reminderTime: '09:00', inAppNotifications: true}); const saved = ref('');
@@ -28,6 +29,8 @@ async function testNotification() { saved.value = ''; try { await api('/notifica
 <template>
   <PageShell :entry="false">
     <section class="panel settings-panel">
+      <nav class="settings-nav" aria-label="设置分类"><button v-for="item in sections" :key="item.id" class="quiet" :aria-current="section===item.id?'page':undefined" @click="section=item.id">{{item.name}}</button></nav>
+      <div v-if="section==='general'">
       <h2>外观</h2>
       <div class="setting-row"><span>显示模式</span><SThemeModeSegment show-label/></div>
       <div class="setting-row"><span>主题色</span><ThemeColorSelect/></div>
@@ -36,7 +39,8 @@ async function testNotification() { saved.value = ''; try { await api('/notifica
       <h2>金额与币种</h2>
       <div class="field"><span>新建卡片默认币种</span><SSelect :model-value="store.defaultCurrency" :items="currencyItems" :trigger-props="{'aria-label': '新建卡片默认币种'}" @update:model-value="preference"/></div>
       <p class="muted">只影响新建卡片，不改历史账单。各币种独立汇总，不连接汇率 API。</p>
-      <hr>
+      </div>
+      <div v-if="section==='notifications'"><hr>
       <h2>扣款提醒</h2>
       <form class="form-grid reminder-form" @submit.prevent="saveReminder">
         <div class="field"><span>站内通知</span><SSelect :model-value="String(reminder.inAppNotifications)" :items="notificationItems" :trigger-props="{'aria-label': '站内通知'}" @update:model-value="value => reminder.inAppNotifications = value === 'true'"/></div>
@@ -49,16 +53,12 @@ async function testNotification() { saved.value = ''; try { await api('/notifica
       <p class="muted">站内提醒在服务器运行时每 30 秒检查；页面刷新也会读取最新账单。通知保留历史记录，金额或日期修改后更新，已还或作废后移入历史。关闭站内通知不影响 iOS 本地提醒。</p>
       <hr>
       <NotificationChannels/>
-      <hr>
-      <SecurityPanel/>
-      <hr>
-      <DevicesPanel/>
-      <hr>
-      <DataPanel/>
-      <hr>
-      <ApiKeysPanel/>
-      <hr>
-      <McpPanel/>
+      </div>
+      <div v-if="section==='devices'"><DevicesPanel/></div>
+      <div v-if="section==='connections'"><ApiKeysPanel/><hr><McpPanel/></div>
+      <div v-if="section==='offline'"><ConnectivityPanel/></div>
+      <div class="row settings-links"><RouterLink to="/profile">个人中心</RouterLink><RouterLink to="/backups">备份管理</RouterLink><RouterLink to="/system">系统状态</RouterLink><RouterLink to="/audit">操作记录</RouterLink></div>
     </section>
   </PageShell>
 </template>
+<style scoped>.settings-nav{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem}.settings-nav [aria-current="page"]{border-color:var(--accent);font-weight:700}.settings-links{flex-wrap:wrap;gap:1rem;margin-top:2rem}</style>

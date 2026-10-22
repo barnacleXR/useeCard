@@ -8,6 +8,7 @@ import {createApp} from '../src/app.js';
 import {DatabaseService} from '../src/database.js';
 import {BackupService} from '../src/data-management/backup.service.js';
 import {OPENAPI_DOCUMENT} from '../src/public-api/openapi.js';
+import {legacyFromFile} from './backup-fixture.js';
 
 test('只读 REST API v1：API Key 只显示一次、凭证隔离、scope、撤销与过期、游标分页、限流、恢复后失效、OpenAPI',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'ccm-public-api-'));
@@ -104,7 +105,7 @@ test('只读 REST API v1：API Key 只显示一次、凭证隔离、scope、撤�
   // 备份恢复后 API Key 全部失效（与会话、设备一致）。
   const owner=(app.get(DatabaseService).db.prepare('SELECT id FROM users').get() as {id:string}).id;
   const backups=app.get(BackupService);const meta=await backups.create(owner);
-  await backups.restore(owner,{password,backup:JSON.parse(readFileSync(backups.file(meta.id),'utf8'))});
+  await backups.restore(owner,{password,backup:legacyFromFile(backups.file(meta.id))});
   assert.equal((await call('/api/v1/accounts',{headers:key(full)})).status,401);
  }finally{delete process.env.CCM_API_RATE_LIMIT;app.get(DatabaseService).close();await app.close();rmSync(dir,{recursive:true,force:true});}
 });

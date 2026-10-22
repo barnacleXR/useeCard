@@ -22,6 +22,27 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: 浏览器管理回归
+        run: |
+          python3 -m pip install playwright==1.58.0
+          python3 -m playwright install --with-deps chromium
+          browser_data="$(mktemp -d)"
+          DATABASE_PATH="$browser_data/db.sqlite" BACKUP_DIR="$browser_data/backups" BASE_URL=http://127.0.0.1:3098 CLIENT_DIST="$PWD/client/dist" COOKIE_SECURE=false PORT=3098 HOST=127.0.0.1 node server/dist/main.js &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$browser_data"' EXIT
+          for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:3098/api/health >/dev/null && break || sleep 1; done
+          USEECARD_BROWSER_URL=http://127.0.0.1:3098 python3 client/test/browser_smoke.py
+      - name: 浏览器推送订阅回归
+        run: |
+          browser_data="$(mktemp -d)"
+          DATABASE_PATH="$browser_data/db.sqlite" BACKUP_DIR="$browser_data/backups" BASE_URL=http://127.0.0.1:3099 CLIENT_DIST="$PWD/client/dist" COOKIE_SECURE=false PORT=3099 HOST=127.0.0.1 VAPID_PUBLIC_KEY=dGVzdA VAPID_PRIVATE_KEY=test-private-key VAPID_SUBJECT=mailto:test@example.com node server/dist/main.js &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$browser_data"' EXIT
+          for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:3099/api/health >/dev/null && break || sleep 1; done
+          USEECARD_BROWSER_URL=http://127.0.0.1:3099 python3 client/test/browser_smoke.py
 
   image:
     needs: test

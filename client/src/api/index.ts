@@ -1,5 +1,6 @@
 let csrf = '';
 export function setCsrf(value: string) { csrf = value; }
+export function getCsrf() { return csrf; }
 export async function api<T>(path: string, method = 'GET', body?: unknown, key?: string): Promise<T> {
   const response = await fetch(`/api${path}`, {method, credentials: 'same-origin', headers: {'Content-Type': 'application/json', ...(csrf ? {'X-CSRF-Token': csrf} : {}), ...(key ? {'Idempotency-Key': key} : {})}, body: body === undefined ? undefined : JSON.stringify(body)});
   if (response.status === 401 && response.headers.get('X-CCM-Session-Expired') === '1') window.dispatchEvent(new Event('ccm-session-expired'));

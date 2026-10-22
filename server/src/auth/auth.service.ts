@@ -5,9 +5,14 @@ import { credentialsInput } from '@ccm/shared';
 import { z } from 'zod';
 import { DatabaseService } from '../database.js';
 import { RateLimitService, hashToken, secureCookies } from '../common/security.js';
+import { auditContext } from '../common/audit-context.js';
 
 export interface AuthRequest extends Request { ownerId: string; deviceId?: string }
 const DUMMY_HASH = `${'0'.repeat(32)}:${'0'.repeat(128)}`;
+export function sessionIdleMs() {
+  const days = Number(process.env.WEB_SESSION_IDLE_DAYS || 30);
+  return (Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30) * 86400000;
+}
 
 // Web 会话：HttpOnly Cookie + CSRF；密码校验同时供原生设备登录使用。
 @Injectable()
@@ -16,13 +21,23 @@ export class AuthService {
   status() { return { initialized: !!this.database.db.prepare('SELECT id FROM users LIMIT 1').get() }; }
   // 用户不存在时也做一次 scrypt，避免以响应时间判断用户名是否存在。
   verifyCredentials(username: string, password: string, limitKey: string) {
-    this.limiter.hit(`password:${limitKey}`);
+    const action=limitKey.startsWith('change:')?'auth.password.failed':limitKey.startsWith('restore:')?'backup.password.failed':'auth.login.failed';
+    try { this.limiter.hit(`password:${limitKey}`); }
+    catch (error) { this.auditFailure(action==='auth.login.failed'?'auth.login.rate_limited':action, 'rate_limited'); throw error; }
     const row = this.database.db.prepare('SELECT * FROM users WHERE username=?').get(username) as {id: string; username: string; passwordHash: string} | undefined;
     const [salt, stored] = (row?.passwordHash || DUMMY_HASH).split(':');
     const candidate = scryptSync(password, salt, 64);
-    if (!row || !timingSafeEqual(candidate, Buffer.from(stored, 'hex'))) throw new UnauthorizedException('用户名或密码错误');
+    if (!row || !timingSafeEqual(candidate, Buffer.from(stored, 'hex'))) { this.auditFailure(action, 'failure', {usernameMatched: !!row}); throw new UnauthorizedException('用户名或密码错误'); }
     this.limiter.clear(`password:${limitKey}`);
     return row;
+  }
+  // 不记录输入的用户名：用户可能把密码误填进用户名栏。
+  private auditFailure(action: string, outcome:'failure'|'rate_limited', changes: Record<string, unknown> = {}) {
+    const owner = this.database.db.prepare('SELECT id FROM users LIMIT 1').get() as {id:string} | undefined;
+    if (!owner) return;
+    const ctx = auditContext.getStore();
+    this.database.db.prepare('INSERT INTO audit_events(id,ownerId,action,entityId,changes,createdAt,source,outcome,authMethod,ip,userAgent,location) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(randomUUID(), owner.id, action, '', JSON.stringify(changes), new Date().toISOString(), ctx?.source || 'unknown', outcome, 'password', ctx?.ip || '', ctx?.userAgent || '', ctx?.location || '');
   }
   login(body: unknown, req: Request, res: Response, setup = false) {
     const input = credentialsInput.parse(body);
@@ -37,25 +52,32 @@ export class AuthService {
   }
   /** 为已验证身份的用户签发 Web 会话 Cookie；密码登录与 OIDC 登录共用。 */
   startSession(userId: string, req: Request, res: Response, action: string) {
+    const ctx=auditContext.getStore();if(ctx)ctx.authMethod=action.includes('oidc')?'oidc':'password';
     const now = Date.now();
     const token = randomBytes(32).toString('hex');
     const csrf = randomBytes(32).toString('hex');
     this.database.db.prepare('DELETE FROM sessions WHERE expiresAt<?').run(now);
-    this.database.db.prepare('INSERT INTO sessions(tokenHash,userId,csrf,expiresAt,id,createdAt,lastUsedAt,userAgent) VALUES(?,?,?,?,?,?,?,?)').run(hashToken(token), userId, csrf, now + 7 * 86400000, randomUUID(), now, now, (req.headers['user-agent'] || '').slice(0,300));
-    res.cookie('ccm_session', token, {httpOnly: true, sameSite: 'strict', secure: secureCookies(), maxAge: 7 * 86400000, path: '/'});
+    this.database.db.prepare('INSERT INTO sessions(tokenHash,userId,csrf,expiresAt,id,createdAt,lastUsedAt,userAgent,rolling) VALUES(?,?,?,?,?,?,?,?,1)').run(hashToken(token), userId, csrf, now + sessionIdleMs(), randomUUID(), now, now, (req.headers['user-agent'] || '').slice(0,300));
+    res.cookie('ccm_session', token, {httpOnly: true, sameSite: 'strict', secure: secureCookies(), maxAge: sessionIdleMs(), path: '/'});
     this.audit(userId, action, userId);
     return { csrf };
   }
-  authenticate(req: Request, write = false) {
+  authenticate(req: Request, write = false, res?: Response) {
     const raw = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('ccm_session='))?.slice(12);
-    const row = raw ? this.database.db.prepare('SELECT * FROM sessions WHERE tokenHash=? AND expiresAt>?').get(hashToken(raw), Date.now()) as {userId: string; csrf: string; id:string} | undefined : undefined;
+    const row = raw ? this.database.db.prepare('SELECT * FROM sessions WHERE tokenHash=? AND expiresAt>?').get(hashToken(raw), Date.now()) as {userId: string; csrf: string; id:string; rolling:number; expiresAt:number} | undefined : undefined;
     if (!row) throw new UnauthorizedException('请先登录');
     if (write && req.headers['x-csrf-token'] !== row.csrf) throw new ForbiddenException('请求校验失败，请刷新后重试');
-    this.database.db.prepare('UPDATE sessions SET lastUsedAt=? WHERE id=?').run(Date.now(),row.id);
+    const now = Date.now();
+    if (row.rolling && res && now+sessionIdleMs()-row.expiresAt>=60_000) {
+      this.database.db.prepare('UPDATE sessions SET lastUsedAt=?,expiresAt=? WHERE id=?').run(now,now+sessionIdleMs(),row.id);
+      res.cookie('ccm_session',raw,{httpOnly:true,sameSite:'strict',secure:secureCookies(),maxAge:sessionIdleMs(),path:'/'});
+    } else this.database.db.prepare('UPDATE sessions SET lastUsedAt=? WHERE id=?').run(now,row.id);
     return { ownerId: row.userId, csrf: row.csrf, id:row.id };
   }
-  audit(owner: string, action: string, entityId: string) {
-    this.database.db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)').run(randomUUID(),owner,action,entityId,'{}',new Date().toISOString());
+  audit(owner: string, action: string, entityId: string, outcome:'success'|'failure'='success') {
+    const ctx = auditContext.getStore();
+    this.database.db.prepare('INSERT INTO audit_events(id,ownerId,action,entityId,changes,createdAt,source,outcome,authMethod,ip,userAgent,location) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(randomUUID(),owner,action,entityId,'{}',new Date().toISOString(),ctx?.source || 'system',outcome,ctx?.authMethod || '',ctx?.ip || '',ctx?.userAgent || '',ctx?.location || '');
   }
   sessions(req: Request) {
     const current = this.authenticate(req);
@@ -77,20 +99,19 @@ export class AuthService {
     const current=this.authenticate(req,true);
     if (input.currentPassword===input.newPassword) throw new BadRequestException('新密码不能与当前密码相同');
     const user=this.database.db.prepare('SELECT username FROM users WHERE id=?').get(current.ownerId) as {username:string};
-    try { this.verifyCredentials(user.username,input.currentPassword,`change:${current.ownerId}`); }
-    catch (error) { this.audit(current.ownerId,'auth.password.rejected',current.ownerId); throw error; }
+    this.verifyCredentials(user.username,input.currentPassword,`change:${current.ownerId}`);
     const salt=randomBytes(16).toString('hex');
     const passwordHash=`${salt}:${scryptSync(input.newPassword,salt,64).toString('hex')}`;
     const token=randomBytes(32).toString('hex'),csrf=randomBytes(32).toString('hex');
     this.database.db.transaction(() => {
       this.database.db.prepare('UPDATE users SET passwordHash=? WHERE id=?').run(passwordHash,current.ownerId);
       this.database.db.prepare('DELETE FROM sessions WHERE userId=? AND id<>?').run(current.ownerId,current.id);
-      this.database.db.prepare('UPDATE sessions SET tokenHash=?,csrf=?,expiresAt=? WHERE id=?').run(hashToken(token),csrf,Date.now()+7*86400000,current.id);
+      this.database.db.prepare('UPDATE sessions SET tokenHash=?,csrf=?,expiresAt=? WHERE id=?').run(hashToken(token),csrf,Date.now()+sessionIdleMs(),current.id);
       this.database.db.prepare('UPDATE device_sessions SET revokedAt=?,revokedReason=? WHERE userId=? AND revokedAt IS NULL').run(new Date().toISOString(),'password_changed',current.ownerId);
       this.database.db.prepare('DELETE FROM pairing_codes WHERE userId=?').run(current.ownerId);
       this.audit(current.ownerId,'auth.password.change',current.ownerId);
     })();
-    res.cookie('ccm_session',token,{httpOnly:true,sameSite:'strict',secure:secureCookies(),maxAge:7*86400000,path:'/'});
+    res.cookie('ccm_session',token,{httpOnly:true,sameSite:'strict',secure:secureCookies(),maxAge:sessionIdleMs(),path:'/'});
     return {csrf};
   }
   logout(req: Request, res: Response) {
