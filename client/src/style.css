@@ -96,3 +96,17 @@ html.dark .entity-icon.mono{background:hsl(var(--icon-hue) 35% 22%);color:hsl(va
 /* Vean 弹层（日历、月份网格、下拉）默认层级低于自定义对话框遮罩（100），在对话框内打开时需要盖在其上。 */
 [data-vean-popper-popup]{z-index:110}
 .date-range-input>:first-child,.field>.date-input,.field>.time-input{background:hsl(var(--background));border-color:hsl(var(--border) / var(--border-alpha,1))}
+
+/* 桌面指针反馈：键盘焦点保持同等清晰，触屏不触发悬停位移。 */
+.filter-select{min-width:140px;flex:1}.filter-select [role="combobox"]{min-height:40px;width:100%;background:hsl(var(--background));border:1px solid hsl(var(--border) / var(--border-alpha,1));border-radius:var(--radius-md);color:inherit}
+@media (hover:hover) and (pointer:fine){
+  .primary,.quiet,.menu-trigger,.month-input-trigger,.calendar-day,.month-cell,.stat-tile,.bill-tile,.list-row,.filter-select [role="combobox"]{transition:transform .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease}
+  .primary:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 7px 18px hsl(var(--primary) / .23)}
+  .quiet:not(:disabled):hover,.menu-trigger:not(:disabled):hover,.month-input-trigger:not(:disabled):hover,.filter-select [role="combobox"]:hover{background:hsl(var(--primary) / .08);border-color:hsl(var(--primary) / .45)}
+  .stat-tile:hover,.bill-tile:hover{transform:translateY(-3px);border-color:hsl(var(--primary) / .45);box-shadow:0 9px 24px #0002}
+  .calendar-day:not(:disabled):hover{background:hsl(var(--primary) / .08);border-color:hsl(var(--primary) / .45)}
+  .list-row:hover{border-color:hsl(var(--primary) / .24)}
+  .row-menu button:hover,.row-menu button:focus-visible{background:hsl(var(--accent));color:hsl(var(--accent-foreground))}
+}
+:where(.primary,.quiet,.menu-trigger,.month-input-trigger,.calendar-day,.month-cell,.filter-select [role="combobox"],.row-menu button):focus-visible{outline:2px solid hsl(var(--ring));outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.primary,.quiet,.menu-trigger,.month-input-trigger,.calendar-day,.month-cell,.stat-tile,.bill-tile,.list-row,.filter-select [role="combobox"]{transition:none!important;transform:none!important}}

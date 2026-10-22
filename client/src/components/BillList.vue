@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import gsap from 'gsap';
 import { formatMoney, type Bill } from '@ccm/shared';
 import { useWorkspace } from '../stores/workspace';
 import { shortDate } from '../format';
@@ -10,6 +11,27 @@ import CardBrandBadge from './CardBrandBadge.vue';
 // 行布局：图标 | 名称 | 扣款账户 | 日期 | 状态 | 金额 | 操作菜单。
 withDefaults(defineProps<{bills: Bill[]; empty?: string}>(), {empty: '这里还没有账单。'});
 const store = useWorkspace(); const editing = ref<Bill>(); const pending = ref(''); const menu = ref('');
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function enterMenu(element: Element, done: () => void) {
+  if (reducedMotion()) { done(); return; }
+  gsap.fromTo(element, {autoAlpha: 0, y: -6, scale: .97}, {autoAlpha: 1, y: 0, scale: 1, duration: .18, ease: 'power2.out', onComplete: done});
+}
+function leaveMenu(element: Element, done: () => void) {
+  gsap.killTweensOf(element);
+  if (reducedMotion()) { done(); return; }
+  gsap.to(element, {autoAlpha: 0, y: -5, scale: .97, duration: .12, ease: 'power1.in', onComplete: done});
+}
+function toggleMenu(id: string, event: MouseEvent) {
+  const trigger = event.currentTarget as HTMLButtonElement;
+  menu.value = menu.value === id ? '' : id;
+  if (menu.value) void nextTick(() => trigger.parentElement?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus());
+}
+function menuKeydown(event: KeyboardEvent) {
+  const buttons = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+  const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+  const next = event.key === 'ArrowDown' ? (index + 1) % buttons.length : event.key === 'ArrowUp' ? (index - 1 + buttons.length) % buttons.length : event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : -1;
+  if (next >= 0) { event.preventDefault(); buttons[next]?.focus(); }
+}
 const statusText = (bill: Bill) => bill.status === 'paid' ? '已扣款' : bill.status === 'void' ? '已作废' : '待扣款';
 async function action(bill: Bill, name: string) {
   menu.value = '';
@@ -20,7 +42,13 @@ async function action(bill: Bill, name: string) {
 function edit(bill: Bill) { menu.value = ''; editing.value = bill; }
 // 点击菜单外部或按 Esc 收起操作菜单。
 const close = (event: Event) => { if (!(event.target as Element).closest?.('.row-actions')) menu.value = ''; };
-const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') menu.value = ''; };
+const escape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !menu.value) return;
+  const id = menu.value; menu.value = '';
+  document.querySelectorAll<HTMLButtonElement>('.menu-trigger').forEach(button => {
+    if (button.dataset.billId === id) button.focus();
+  });
+};
 onMounted(() => { document.addEventListener('click', close); document.addEventListener('keydown', escape); });
 onBeforeUnmount(() => { document.removeEventListener('click', close); document.removeEventListener('keydown', escape); });
 </script>
@@ -36,12 +64,14 @@ onBeforeUnmount(() => { document.removeEventListener('click', close); document.r
       <div class="row-price">{{ formatMoney(bill.amountMinor, bill.currency) }}</div>
       <div class="row-actions">
         <template v-if="bill.status !== 'void'">
-          <button type="button" class="menu-trigger" :aria-expanded="menu === bill.id" :aria-label="`${bill.cardName} ${bill.dueDate} 的操作`" :disabled="pending === bill.id" @click="menu = menu === bill.id ? '' : bill.id">⋮</button>
-          <div v-if="menu === bill.id" class="row-menu" role="menu">
+          <button type="button" class="menu-trigger" :data-bill-id="bill.id" aria-haspopup="menu" :aria-expanded="menu === bill.id" :aria-label="`${bill.cardName} ${bill.dueDate} 的操作`" :disabled="pending === bill.id" @click="toggleMenu(bill.id, $event)">⋮</button>
+          <Transition :css="false" @enter="enterMenu" @leave="leaveMenu">
+          <div v-if="menu === bill.id" class="row-menu" role="menu" @keydown="menuKeydown">
             <button type="button" role="menuitem" @click="edit(bill)">编辑</button>
             <button type="button" role="menuitem" @click="action(bill, bill.status === 'paid' ? 'undo-paid' : 'paid')">{{ bill.status === 'paid' ? '撤销已扣款' : '确认已扣款' }}</button>
             <button type="button" role="menuitem" class="danger" @click="action(bill, 'void')">作废</button>
           </div>
+          </Transition>
         </template>
       </div>
     </article>

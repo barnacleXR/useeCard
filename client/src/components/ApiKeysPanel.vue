@@ -2,10 +2,12 @@
 import { ref, computed, onMounted } from 'vue';
 import { apiScopes, japanMonth, type ApiKeyCreated, type ApiKeyInfo, type ApiScope } from '@ccm/shared';
 import { api } from '../api';
+import { SSelect } from '@vean/ui';
 // 只读 REST API v1：创建、查看与撤销独立 API Key；原文只在创建后显示一次。
 const scopeLabels: Record<ApiScope, string> = {'accounts:read': '账户', 'cards:read': '信用卡', 'bills:read': '账单', 'summary:read': '备款汇总', 'reviews:read': '月度检查'};
 const keys = ref<ApiKeyInfo[]>([]); const created = ref<ApiKeyCreated>(); const error = ref(''); const busy = ref(false); const copied = ref(false);
 const form = ref({name: '', scopes: [...apiScopes] as ApiScope[], expiresInDays: 90 as 30 | 90 | 365 | null});
+const expiryItems = [{value:'30',label:'30 天'},{value:'90',label:'90 天'},{value:'365',label:'365 天'},{value:'never',label:'永不过期'}];
 const origin = window.location.origin;
 const example = computed(() => `curl '${origin}/api/v1/summary?dueMonth=${japanMonth()}' \\\n  -H 'Authorization: Bearer ${created.value?.key ?? '<API Key>'}'`);
 const time = (value: string | null, empty = '—') => value ? new Date(value).toLocaleString('zh-CN', {timeZone: 'Asia/Tokyo', hour12: false}) : empty;
@@ -31,7 +33,7 @@ onMounted(load);
     <fieldset class="scope-list"><legend>权限（只读）</legend>
       <label v-for="scope in apiScopes" :key="scope" class="checkbox"><input v-model="form.scopes" type="checkbox" :value="scope">{{ scopeLabels[scope] }} <code>{{ scope }}</code></label>
     </fieldset>
-    <label>有效期<select v-model="form.expiresInDays"><option :value="30">30 天</option><option :value="90">90 天</option><option :value="365">365 天</option><option :value="null">永不过期</option></select></label>
+    <div class="field"><span>有效期</span><SSelect :model-value="form.expiresInDays === null ? 'never' : String(form.expiresInDays)" :items="expiryItems" :trigger-props="{'aria-label':'有效期'}" @update:model-value="value => form.expiresInDays = value === 'never' ? null : Number(value) as 30 | 90 | 365"/></div>
     <div><button class="primary" :disabled="busy || !form.scopes.length">{{ busy ? '正在创建…' : '创建 API Key' }}</button></div>
   </form>
   <div v-if="created" class="api-key-created" role="status">
