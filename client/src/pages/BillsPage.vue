@@ -6,6 +6,7 @@ import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import PageShell from '../components/PageShell.vue';
 import BillList from '../components/BillList.vue';
+import DateRangeInput from '../components/fields/DateRangeInput.vue';
 const store = useWorkspace();
 // 默认显示当前日本月份；清空日期即查询全部历史。
 const monthRange = (month: string) => { const [y, m] = month.split('-').map(Number); return {from: `${month}-01`, to: `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`}; };
@@ -33,8 +34,7 @@ onMounted(load);
 <template>
   <PageShell>
     <div class="toolbar filters">
-      <label>扣款日从<input v-model="filters.from" type="date"></label>
-      <label>至<input v-model="filters.to" type="date"></label>
+      <div class="field date-range-field"><span>扣款日</span><DateRangeInput v-model:from="filters.from" v-model:to="filters.to" label="扣款日范围"/></div>
       <label>信用卡<select v-model="filters.cardId"><option value="">全部卡片</option><option v-for="item in store.cards" :key="item.id" :value="item.id">{{ item.name }}{{ item.archivedAt ? '（已归档）' : '' }}</option></select></label>
       <label>扣款账户<select v-model="filters.accountId"><option value="">全部账户</option><option v-for="item in store.accounts" :key="item.id" :value="item.id">{{ item.name }}{{ item.archivedAt ? '（已归档）' : '' }}</option></select></label>
       <label>币种<select v-model="filters.currency"><option value="">全部币种</option><option v-for="(_, code) in currencies" :key="code">{{ code }}</option></select></label>

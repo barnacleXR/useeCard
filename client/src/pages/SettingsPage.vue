@@ -12,6 +12,7 @@ import DataPanel from '../components/DataPanel.vue';
 import ApiKeysPanel from '../components/ApiKeysPanel.vue';
 import McpPanel from '../components/McpPanel.vue';
 import ThemeColorSelect from '../components/ThemeColorSelect.vue';
+import TimeInput from '../components/fields/TimeInput.vue';
 const store = useWorkspace();
 const reminder = ref({reminderDaysBefore: 1, reminderTime: '09:00', inAppNotifications: true}); const saved = ref('');
 onMounted(async () => { try { const p = await api<Preferences>('/settings'); reminder.value = {reminderDaysBefore: p.reminderDaysBefore, reminderTime: p.reminderTime, inAppNotifications: p.inAppNotifications}; } catch {} });
@@ -38,7 +39,7 @@ async function testNotification() { saved.value = ''; try { await api('/notifica
       <form class="form-grid reminder-form" @submit.prevent="saveReminder">
         <label>站内通知<select v-model="reminder.inAppNotifications"><option :value="true">开启</option><option :value="false">关闭</option></select></label>
         <label>提前天数<input v-model.number="reminder.reminderDaysBefore" type="number" min="0" max="30" required></label>
-        <label>提醒时间（日本时间）<input v-model="reminder.reminderTime" type="time" required></label>
+        <div class="field"><span>提醒时间（日本时间）</span><TimeInput v-model="reminder.reminderTime" label="提醒时间"/></div>
         <div class="row"><button class="primary">保存提醒设置</button><span class="muted" role="status">{{ saved }}</span></div>
       </form>
       <p class="muted">按“扣款账户＋日期＋币种”合并已录入的待还账单，按自然日提前，不考虑节假日。iOS App 同步后在本机排程通知；外部通知通过下方 Apprise 通道发送。</p>

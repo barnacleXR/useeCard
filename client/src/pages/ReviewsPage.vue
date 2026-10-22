@@ -4,6 +4,7 @@ import type { Review } from '@ccm/shared';
 import { useWorkspace } from '../stores/workspace';
 import PageShell from '../components/PageShell.vue';
 import ReviewLinkDialog from '../components/ReviewLinkDialog.vue';
+import MonthInput from '../components/fields/MonthInput.vue';
 const store = useWorkspace(); const selected = ref<string[]>([]); const lowOpen = ref(false); const linking = ref<Review>();
 const visible = computed(() => store.reviews.filter(r => lowOpen.value || r.frequency === 'regular'));
 watch(() => store.reviewMonth, () => { selected.value = []; });
@@ -22,7 +23,7 @@ async function confirmNone() {
 <template>
   <PageShell>
     <section class="panel">
-      <div class="row wrap"><div><h2>逐卡核对，不用填零</h2><p class="muted">无新增只表示本轮检查结论，不抵消已有待还账单。</p></div><label>检查月份<input v-model="store.reviewMonth" type="month"></label></div>
+      <div class="row wrap"><div><h2>逐卡核对，不用填零</h2><p class="muted">无新增只表示本轮检查结论，不抵消已有待还账单。</p></div><div class="field"><span>检查月份</span><MonthInput v-model="store.reviewMonth" label="检查月份"/></div></div>
       <button v-if="!store.reviews.length" class="primary" @click="start">创建本月检查清单</button>
       <template v-else>
         <div class="row wrap"><button class="quiet" @click="lowOpen = !lowOpen">{{ lowOpen ? '折叠' : '展开' }}低频卡（{{ store.reviews.filter(r => r.frequency === 'low').length }}）</button><button class="primary" :disabled="!selected.length" @click="confirmNone">所选 {{ selected.length }} 张无新增账单</button></div>

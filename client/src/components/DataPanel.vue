@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { api } from '../api';
+import TimeInput from './fields/TimeInput.vue';
 interface Backup {id:string;createdAt:string;bytes:number;reason:'manual'|'automatic'|'before-restore';counts:Record<string,number>}
 interface Schedule {frequency:'off'|'daily'|'weekly';time:string;weekday:number;retentionDays:number}
 interface Status {schedule:Schedule;latest:{ok:boolean;at:string;message?:string}|null;backups:Backup[];maxDatabaseBytes:number}
@@ -34,7 +35,7 @@ async function restore(){
   <div class="data-actions"><button class="primary" :disabled="busy" @click="create">{{ busy ? '处理中…' : '创建完整备份' }}</button><button class="quiet" :disabled="busy" @click="restoreOpen=true;error='';message=''">从备份恢复</button></div>
   <form class="form-grid backup-schedule" @submit.prevent="save">
     <label>自动备份<select v-model="schedule.frequency" aria-label="自动备份"><option value="off">关闭</option><option value="daily">每天</option><option value="weekly">每周</option></select></label>
-    <label v-if="schedule.frequency!=='off'">时间（日本时间）<input v-model="schedule.time" type="time" required></label>
+    <div v-if="schedule.frequency!=='off'" class="field"><span>时间（日本时间）</span><TimeInput v-model="schedule.time" label="自动备份时间"/></div>
     <label v-if="schedule.frequency==='weekly'">每周<select v-model.number="schedule.weekday" aria-label="每周"><option v-for="(day,n) in ['日','一','二','三','四','五','六']" :key="n" :value="n">星期{{day}}</option></select></label>
     <label>保留天数<input v-model.number="schedule.retentionDays" type="number" min="1" max="365" required></label>
     <div class="full"><button class="quiet" :disabled="busy || !status">保存备份设置</button></div>

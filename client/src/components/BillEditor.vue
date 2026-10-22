@@ -2,6 +2,8 @@
 import { ref, watch } from 'vue';
 import { currencies, parseMoney, moneyDecimal, type Bill, type Currency } from '@ccm/shared';
 import { useWorkspace } from '../stores/workspace';
+import DateInput from './fields/DateInput.vue';
+import MonthInput from './fields/MonthInput.vue';
 const props = defineProps<{bill?: Bill}>(); const emit = defineEmits<{close: []}>(); const store = useWorkspace();
 const cardId = ref(props.bill?.cardId || ''); const accountId = ref(props.bill?.debitAccountId || ''); const currency = ref<Currency>(props.bill?.currency || store.defaultCurrency);
 const amount = ref(props.bill ? moneyDecimal(props.bill.amountMinor, props.bill.currency) : ''); const dueDate = ref(props.bill?.dueDate || ''); const note = ref(props.bill?.note || ''); const statementMonth = ref(props.bill?.statementMonth || '');
@@ -9,6 +11,7 @@ const error = ref(''); const busy = ref(false); let key = crypto.randomUUID(); l
 watch(cardId, value => { const card = store.cards.find(c => c.id === value); if (card) { accountId.value = card.defaultDebitAccountId; currency.value = card.defaultCurrency; } });
 async function save() {
   error.value = '';
+  if (!dueDate.value) { error.value = '请选择实际扣款日'; return; }
   try {
     const amountMinor = parseMoney(amount.value, currency.value);
     const duplicate = store.bills.some(b => b.id !== props.bill?.id && b.cardId === cardId.value && b.currency === currency.value && b.amountMinor === amountMinor && b.dueDate === dueDate.value && b.status !== 'void');
@@ -29,7 +32,7 @@ async function save() {
     <label>扣款账户<select v-model="accountId" required><option value="" disabled>选择账户</option><option v-for="account in store.accounts.filter(a => !a.archivedAt || a.id === bill?.debitAccountId)" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
     <label>币种<select v-model="currency"><option v-for="(_, code) in currencies" :key="code">{{ code }}</option></select></label>
     <label>应还金额<input v-model="amount" required inputmode="decimal" placeholder="银行账单金额"><small v-if="amount === '0'">无新增账单请前往月度检查，不必录入零元。</small></label>
-    <label>实际扣款日<input v-model="dueDate" type="date" required></label><label>账单归属月（可选）<input v-model="statementMonth" type="month"></label>
+    <div class="field"><span>实际扣款日</span><DateInput v-model="dueDate" label="实际扣款日"/></div><div class="field"><span>账单归属月（可选）</span><MonthInput v-model="statementMonth" clearable label="账单归属月"/></div>
     <label class="full">备注<textarea v-model="note" maxlength="1000" rows="2"/></label>
     <p v-if="error" class="error full" role="alert">{{ error }}</p><button class="primary full" :disabled="busy">{{ busy ? '正在保存…' : '保存账单' }}</button>
   </form></section></div>

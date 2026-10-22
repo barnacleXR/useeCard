@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { api } from '../api';
 import PageShell from '../components/PageShell.vue';
+import DateRangeInput from '../components/fields/DateRangeInput.vue';
 type Entry={id:string;action:string;entityId:string;changes:unknown;createdAt:string};
 const items=ref<Entry[]>([]),actions=ref<string[]>([]),total=ref(0),page=ref(1),pageSize=ref(20),action=ref(''),from=ref(''),to=ref(''),busy=ref(false),error=ref('');
 let generation=0;
@@ -16,8 +17,7 @@ onMounted(()=>load());onBeforeUnmount(()=>generation++);
   <section class="panel">
    <form class="form-grid" @submit.prevent="load(true)">
     <label>操作<select v-model="action"><option value="">全部操作</option><option v-for="item in actions" :key="item" :value="item">{{ labels[item]||item }}</option></select></label>
-    <label>开始日期（日本时间）<input v-model="from" type="date"></label>
-    <label>结束日期（日本时间）<input v-model="to" type="date" :min="from"></label>
+    <div class="field"><span>日期（日本时间）</span><DateRangeInput v-model:from="from" v-model:to="to" label="日期范围"/></div>
     <label>每页<select v-model.number="pageSize"><option :value="20">20 条</option><option :value="50">50 条</option><option :value="100">100 条</option></select></label>
     <div><button class="primary" :disabled="busy">查询</button></div>
    </form>
