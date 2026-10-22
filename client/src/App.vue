@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { SConfigProvider, SAppShell } from '@vean/ui';
+import { readThemeEnvelope } from '@vean/theme/storage';
+import { colors } from './themePreset';
+import ThemeInitializer from './components/ThemeInitializer.vue';
 import { api, setCsrf } from './api';
 import { useWorkspace } from './stores/workspace';
 import NotificationButton from './components/NotificationButton.vue';
@@ -9,6 +12,7 @@ import ThemePanel from './components/ThemePanel.vue';
 import BrandLogo from './components/BrandLogo.vue';
 import ThemeModeButton from './components/ThemeModeButton.vue';
 import { oidcMessage, takeHashParam } from './oidc';
+const initialTheme = readThemeEnvelope() ? {} : {preset: colors, mode: 'dark' as const};
 const route = useRoute(); const router = useRouter(); const store = useWorkspace();
 const oidc = ref<{name:string}>(); const ready = ref(false); const loggedIn = ref(false); const initialized = ref(false); const username = ref(''); const password = ref(''); const error = ref(''); const submitting = ref(false);
 // 授权页等独立页面登录后不显示侧栏。
@@ -33,7 +37,8 @@ async function login() {
 async function logout() { try { await api('/auth/logout','POST'); setCsrf(''); loggedIn.value = false; } catch(e) { store.error = (e as Error).message; } }
 </script>
 <template>
-  <SConfigProvider persist-theme locale="zh-CN">
+  <SConfigProvider persist-theme locale="zh-CN" :theme="initialTheme">
+    <ThemeInitializer :first-run="Boolean(initialTheme.preset)"/>
     <div v-if="!ready" class="auth-page">正在连接自托管服务器…</div>
     <main v-else-if="!loggedIn" class="auth-page">
       <form class="auth-card" @submit.prevent="login">
@@ -49,7 +54,7 @@ async function logout() { try { await api('/auth/logout','POST'); setCsrf(''); l
     <main v-else-if="bare" class="auth-page"><RouterView/></main>
     <SAppShell v-else :items="items" :model-value="route.path" mode="sidebar" :ui="{layoutContent:'p-4 md:p-6'}" @select="value => router.push(String(value))">
       <template #logo><BrandLogo :size="30"/></template><template #title><strong>useeCard</strong></template>
-      <template #header-end><div class="header-tools"><span class="instance-label">我的自托管空间</span><NotificationButton/><ThemeModeButton/><button class="quiet" aria-haspopup="dialog" @click="store.themePanel = true">外观</button><button class="quiet" @click="logout">退出</button></div></template>
+      <template #header-end><div class="header-tools"><NotificationButton/><ThemeModeButton/><button class="quiet" aria-haspopup="dialog" @click="store.themePanel = true">外观</button><button class="quiet" @click="logout">退出</button></div></template>
       <div class="workspace"><p v-if="store.error" class="error" role="alert">{{ store.error }}</p><RouterView/></div>
     </SAppShell>
     <ThemePanel v-if="loggedIn && !bare"/>

@@ -4,10 +4,15 @@ import { useRoute } from 'vue-router';
 import { billSearchInput, currencies, japanMonth, type BillPage, type BillSearch } from '@ccm/shared';
 import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
+import { SSelect } from '@vean/ui';
 import PageShell from '../components/PageShell.vue';
 import BillList from '../components/BillList.vue';
 import DateRangeInput from '../components/fields/DateRangeInput.vue';
 const store = useWorkspace();
+const cardItems = computed(() => [{value: '', label: '全部卡片'}, ...store.cards.map(item => ({value: item.id, label: `${item.name}${item.archivedAt ? '（已归档）' : ''}`}))]);
+const accountItems = computed(() => [{value: '', label: '全部账户'}, ...store.accounts.map(item => ({value: item.id, label: `${item.name}${item.archivedAt ? '（已归档）' : ''}`}))]);
+const currencyItems = [{value: '', label: '全部币种'}, ...Object.keys(currencies).map(value => ({value, label: value}))];
+const statusItems = [{value: '', label: '全部状态'}, {value: 'pending', label: '待确认扣款'}, {value: 'paid', label: '已扣款'}, {value: 'void', label: '已作废'}];
 // 默认显示当前日本月份；清空日期即查询全部历史。
 const monthRange = (month: string) => { const [y, m] = month.split('-').map(Number); return {from: `${month}-01`, to: `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`}; };
 const blank = () => ({...monthRange(japanMonth()), cardId: '', accountId: '', currency: '', status: ''});
@@ -35,10 +40,10 @@ onMounted(load);
   <PageShell>
     <div class="toolbar filters">
       <div class="field date-range-field"><span>扣款日</span><DateRangeInput v-model:from="filters.from" v-model:to="filters.to" label="扣款日范围"/></div>
-      <label>信用卡<select v-model="filters.cardId"><option value="">全部卡片</option><option v-for="item in store.cards" :key="item.id" :value="item.id">{{ item.name }}{{ item.archivedAt ? '（已归档）' : '' }}</option></select></label>
-      <label>扣款账户<select v-model="filters.accountId"><option value="">全部账户</option><option v-for="item in store.accounts" :key="item.id" :value="item.id">{{ item.name }}{{ item.archivedAt ? '（已归档）' : '' }}</option></select></label>
-      <label>币种<select v-model="filters.currency"><option value="">全部币种</option><option v-for="(_, code) in currencies" :key="code">{{ code }}</option></select></label>
-      <label>状态<select v-model="filters.status"><option value="">全部状态</option><option value="pending">待确认扣款</option><option value="paid">已扣款</option><option value="void">已作废</option></select></label>
+      <div class="field filter-select"><span>信用卡</span><SSelect v-model="filters.cardId" :items="cardItems" :trigger-props="{'aria-label': '信用卡'}"/></div>
+      <div class="field filter-select"><span>扣款账户</span><SSelect v-model="filters.accountId" :items="accountItems" :trigger-props="{'aria-label': '扣款账户'}"/></div>
+      <div class="field filter-select"><span>币种</span><SSelect v-model="filters.currency" :items="currencyItems" :trigger-props="{'aria-label': '币种'}"/></div>
+      <div class="field filter-select"><span>状态</span><SSelect v-model="filters.status" :items="statusItems" :trigger-props="{'aria-label': '状态'}"/></div>
       <button class="quiet" type="button" @click="filters = blank()">重置</button>
     </div>
     <section class="tile-section">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { SSelect } from '@vean/ui';
 import { api } from '../api';
 import PageShell from '../components/PageShell.vue';
 import DateRangeInput from '../components/fields/DateRangeInput.vue';
@@ -7,6 +8,8 @@ type Entry={id:string;action:string;entityId:string;changes:unknown;createdAt:st
 const items=ref<Entry[]>([]),actions=ref<string[]>([]),total=ref(0),page=ref(1),pageSize=ref(20),action=ref(''),from=ref(''),to=ref(''),busy=ref(false),error=ref('');
 let generation=0;
 const labels:Record<string,string>={'auth.login':'浏览器登录','auth.password.change':'修改密码','auth.password.rejected':'修改密码验证失败','auth.session.revoke':'撤销浏览器登录','device.revoke':'撤销设备','device.create':'设备登录','device.pairing-code':'生成配对码','asset.create':'添加图片','bill.create':'添加账单','bill.update':'编辑账单','bill.paid':'确认已还','bill.undo-paid':'撤销已还','bill.void':'作废账单','account.create':'添加账户','account.update':'编辑账户','card.create':'添加卡片','card.update':'编辑卡片','archive':'归档卡片或账户','bank_accounts.reorder':'调整账户顺序','credit_cards.reorder':'调整卡片顺序','review.start':'建立月度检查','review.add-cards':'补充检查卡片','review.confirm':'确认检查结果','backup.schedule':'设置自动备份','backup.create':'创建备份','backup.restore':'恢复备份'};
+const actionItems = computed(() => [{value:'',label:'全部操作'},...actions.value.map(value => ({value,label:labels[value] || value}))]);
+const pageSizeItems: {value:number;label:string}[] = [{value:20,label:'20 条'},{value:50,label:'50 条'},{value:100,label:'100 条'}];
 const time=(value:string)=>new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Tokyo',hour12:false});
 async function load(reset=false){if(reset)page.value=1;const run=++generation;busy.value=true;error.value='';try{const q=new URLSearchParams({page:String(page.value),pageSize:String(pageSize.value)});if(action.value)q.set('action',action.value);if(from.value)q.set('from',from.value);if(to.value)q.set('to',to.value);const data=await api<{items:Entry[];actions:string[];total:number}>('/audit?'+q);if(run!==generation)return;items.value=data.items;actions.value=data.actions;total.value=data.total;}catch(e){if(run===generation){items.value=[];total.value=0;error.value=(e as Error).message;}}finally{if(run===generation)busy.value=false;}}
 function turn(delta:number){page.value+=delta;void load();}
@@ -16,9 +19,9 @@ onMounted(()=>load());onBeforeUnmount(()=>generation++);
  <PageShell :entry="false">
   <section class="panel">
    <form class="form-grid" @submit.prevent="load(true)">
-    <label>操作<select v-model="action"><option value="">全部操作</option><option v-for="item in actions" :key="item" :value="item">{{ labels[item]||item }}</option></select></label>
+    <div class="field"><span>操作</span><SSelect v-model="action" :items="actionItems" :trigger-props="{'aria-label':'操作'}"/></div>
     <div class="field"><span>日期（日本时间）</span><DateRangeInput v-model:from="from" v-model:to="to" label="日期范围"/></div>
-    <label>每页<select v-model.number="pageSize"><option :value="20">20 条</option><option :value="50">50 条</option><option :value="100">100 条</option></select></label>
+    <div class="field"><span>每页</span><SSelect v-model="pageSize" :items="pageSizeItems" :trigger-props="{'aria-label':'每页'}"/></div>
     <div><button class="primary" :disabled="busy">查询</button></div>
    </form>
    <p v-if="error" class="error" role="alert">{{ error }}</p>

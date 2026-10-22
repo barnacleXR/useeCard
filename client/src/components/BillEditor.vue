@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
+import { SSelect } from '@vean/ui';
 import { currencies, parseMoney, moneyDecimal, type Bill, type Currency } from '@ccm/shared';
 import { useWorkspace } from '../stores/workspace';
 import DateInput from './fields/DateInput.vue';
 import MonthInput from './fields/MonthInput.vue';
 const props = defineProps<{bill?: Bill}>(); const emit = defineEmits<{close: []}>(); const store = useWorkspace();
 const cardId = ref(props.bill?.cardId || ''); const accountId = ref(props.bill?.debitAccountId || ''); const currency = ref<Currency>(props.bill?.currency || store.defaultCurrency);
+const cardItems = computed(() => store.cards.filter(c => !c.archivedAt || c.id === props.bill?.cardId).map(c => ({value:c.id,label:c.name})));
+const accountItems = computed(() => store.accounts.filter(a => !a.archivedAt || a.id === props.bill?.debitAccountId).map(a => ({value:a.id,label:a.name})));
+const currencyItems = Object.keys(currencies).map(value => ({value,label:value}));
 const amount = ref(props.bill ? moneyDecimal(props.bill.amountMinor, props.bill.currency) : ''); const dueDate = ref(props.bill?.dueDate || ''); const note = ref(props.bill?.note || ''); const statementMonth = ref(props.bill?.statementMonth || '');
 const error = ref(''); const busy = ref(false); let key = crypto.randomUUID(); let lastPayload = '';
 watch(cardId, value => { const card = store.cards.find(c => c.id === value); if (card) { accountId.value = card.defaultDebitAccountId; currency.value = card.defaultCurrency; } });
 async function save() {
   error.value = '';
+  if (!cardId.value || !accountId.value) { error.value = '请选择信用卡和扣款账户'; return; }
   if (!dueDate.value) { error.value = '请选择实际扣款日'; return; }
   try {
     const amountMinor = parseMoney(amount.value, currency.value);
@@ -28,9 +33,9 @@ async function save() {
   <div class="modal-backdrop" @click.self="emit('close')"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="bill-title"><header class="row"><h2 id="bill-title">{{ bill ? '编辑账单' : '录入账单' }}</h2><button type="button" class="quiet" :disabled="busy" @click="emit('close')">关闭</button></header>
   <p class="muted">参照信用卡 App 填写银行实际要求偿还的金额与日期。</p>
   <form class="form-grid" @submit.prevent="save">
-    <label>信用卡<select v-model="cardId" required><option value="" disabled>选择信用卡</option><option v-for="card in store.cards.filter(c => !c.archivedAt || c.id === bill?.cardId)" :key="card.id" :value="card.id">{{ card.name }}</option></select></label>
-    <label>扣款账户<select v-model="accountId" required><option value="" disabled>选择账户</option><option v-for="account in store.accounts.filter(a => !a.archivedAt || a.id === bill?.debitAccountId)" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
-    <label>币种<select v-model="currency"><option v-for="(_, code) in currencies" :key="code">{{ code }}</option></select></label>
+    <div class="field"><span>信用卡</span><SSelect v-model="cardId" :items="cardItems" placeholder="选择信用卡" :trigger-props="{'aria-label':'信用卡'}"/></div>
+    <div class="field"><span>扣款账户</span><SSelect v-model="accountId" :items="accountItems" placeholder="选择账户" :trigger-props="{'aria-label':'扣款账户'}"/></div>
+    <div class="field"><span>币种</span><SSelect v-model="currency" :items="currencyItems" :trigger-props="{'aria-label':'币种'}"/></div>
     <label>应还金额<input v-model="amount" required inputmode="decimal" placeholder="银行账单金额"><small v-if="amount === '0'">无新增账单请前往月度检查，不必录入零元。</small></label>
     <div class="field"><span>实际扣款日</span><DateInput v-model="dueDate" label="实际扣款日"/></div><div class="field"><span>账单归属月（可选）</span><MonthInput v-model="statementMonth" clearable label="账单归属月"/></div>
     <label class="full">备注<textarea v-model="note" maxlength="1000" rows="2"/></label>

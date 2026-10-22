@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { api } from '../api';
 import TimeInput from './fields/TimeInput.vue';
+import { SSelect } from '@vean/ui';
 interface Backup {id:string;createdAt:string;bytes:number;reason:'manual'|'automatic'|'before-restore';counts:Record<string,number>}
 interface Schedule {frequency:'off'|'daily'|'weekly';time:string;weekday:number;retentionDays:number}
 interface Status {schedule:Schedule;latest:{ok:boolean;at:string;message?:string}|null;backups:Backup[];maxDatabaseBytes:number}
@@ -12,6 +13,8 @@ const result=ref<{requiresLogin:boolean;safetyBackup:string}>();
 const date=(raw:string)=>new Date(raw).toLocaleString('zh-CN',{timeZone:'Asia/Tokyo'});
 const size=(bytes:number)=>bytes<1024*1024?`${Math.ceil(bytes/1024)} KB`:`${(bytes/(1024*1024)).toFixed(1)} MB`;
 const reasons={manual:'手动备份',automatic:'自动备份','before-restore':'恢复前快照'};
+const frequencyItems = [{value:'off',label:'关闭'},{value:'daily',label:'每天'},{value:'weekly',label:'每周'}];
+const weekdayItems: {value:number;label:string}[] = ['日','一','二','三','四','五','六'].map((day,value) => ({value,label:`星期${day}`}));
 async function load(){status.value=await api<Status>('/data/backups');schedule.value={...status.value.schedule};}
 onMounted(()=>{void load().catch(e=>error.value=(e as Error).message);});
 async function create(){busy.value=true;error.value='';message.value='';try{await api('/data/backups','POST',{});await load();message.value='完整备份已保存，可在下方下载。';}catch(e){error.value=(e as Error).message;}finally{busy.value=false;}}
@@ -34,9 +37,9 @@ async function restore(){
   <p class="muted">完整备份可恢复整个实例，包括图标和账号资料。请妥善保存备份文件，并定期下载到其他设备；同机备份无法防范磁盘损坏。</p>
   <div class="data-actions"><button class="primary" :disabled="busy" @click="create">{{ busy ? '处理中…' : '创建完整备份' }}</button><button class="quiet" :disabled="busy" @click="restoreOpen=true;error='';message=''">从备份恢复</button></div>
   <form class="form-grid backup-schedule" @submit.prevent="save">
-    <label>自动备份<select v-model="schedule.frequency" aria-label="自动备份"><option value="off">关闭</option><option value="daily">每天</option><option value="weekly">每周</option></select></label>
+    <div class="field"><span>自动备份</span><SSelect v-model="schedule.frequency" :items="frequencyItems" :trigger-props="{'aria-label':'自动备份'}"/></div>
     <div v-if="schedule.frequency!=='off'" class="field"><span>时间（日本时间）</span><TimeInput v-model="schedule.time" label="自动备份时间"/></div>
-    <label v-if="schedule.frequency==='weekly'">每周<select v-model.number="schedule.weekday" aria-label="每周"><option v-for="(day,n) in ['日','一','二','三','四','五','六']" :key="n" :value="n">星期{{day}}</option></select></label>
+    <div v-if="schedule.frequency==='weekly'" class="field"><span>每周</span><SSelect v-model="schedule.weekday" :items="weekdayItems" :trigger-props="{'aria-label':'每周'}"/></div>
     <label>保留天数<input v-model.number="schedule.retentionDays" type="number" min="1" max="365" required></label>
     <div class="full"><button class="quiet" :disabled="busy || !status">保存备份设置</button></div>
   </form>

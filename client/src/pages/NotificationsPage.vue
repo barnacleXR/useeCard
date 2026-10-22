@@ -4,7 +4,9 @@ import { formatMoney, type NotificationItem, type NotificationPage } from '@ccm/
 import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import PageShell from '../components/PageShell.vue';
+import { SSelect } from '@vean/ui';
 const store=useWorkspace();
+const filterItems: {value:string;label:string}[] = [{value:'active',label:'当前提醒'},{value:'unread',label:'未读提醒'},{value:'history',label:'全部记录'}];
 const filter=ref('active'),page=ref(1),result=ref<NotificationPage>({items:[],total:0,unreadCount:0,page:1,pageSize:20}),busy=ref(false),writing=ref(false),error=ref('');
 let sequence=0;let timer:ReturnType<typeof setInterval>;
 const time=(value:string)=>new Date(value).toLocaleString('zh-CN',{timeZone:'Asia/Tokyo',hour12:false});
@@ -15,13 +17,14 @@ async function read(item?:NotificationItem){writing.value=true;error.value='';tr
 function changeFilter(){page.value=1;void load();}
 function turn(delta:number){page.value+=delta;void load();}
 watch(()=>store.revision,()=>void load());
+watch(filter, changeFilter);
 onMounted(()=>{void load();timer=setInterval(()=>{if(!document.hidden&&!writing.value)void load();},30_000);});
 onBeforeUnmount(()=>{sequence++;clearInterval(timer);});
 </script>
 <template>
  <PageShell :entry="false">
   <section class="panel">
-   <div class="toolbar"><label>显示<select v-model="filter" @change="changeFilter"><option value="active">当前提醒</option><option value="unread">未读提醒</option><option value="history">全部记录</option></select></label><button class="quiet" :disabled="busy||writing" @click="load">刷新</button><button class="quiet" :disabled="busy||writing||!result.unreadCount" @click="read()">全部标为已读</button><RouterLink to="/settings">提醒设置</RouterLink></div>
+   <div class="toolbar"><div class="field filter-select"><span>显示</span><SSelect v-model="filter" :items="filterItems" :trigger-props="{'aria-label':'显示通知'}"/></div><button class="quiet" :disabled="busy||writing" @click="load">刷新</button><button class="quiet" :disabled="busy||writing||!result.unreadCount" @click="read()">全部标为已读</button><RouterLink to="/settings">提醒设置</RouterLink></div>
    <p class="muted">{{ result.unreadCount }} 条未读。只统计已录入的待确认账单，各币种独立提醒；已读不表示已扣款。</p>
    <p v-if="error" class="error" role="alert">{{ error }}</p>
    <p v-if="busy&&!result.items.length" role="status">正在加载通知…</p><p v-else-if="!result.items.length" class="muted">没有符合条件的通知。</p>
