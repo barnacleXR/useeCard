@@ -11,7 +11,10 @@ const props = withDefaults(
 const emit = defineEmits<{ close: [] }>();
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && !props.busy) emit('close');
+  if (event.key !== 'Escape' || props.busy) return;
+  // 弹窗内有打开的下拉/日期弹层时，Escape 仅关闭弹层，不误关整个弹窗。
+  if (event.defaultPrevented || document.querySelector('[data-dismissable-layer]')) return;
+  emit('close');
 }
 
 onMounted(() => {
