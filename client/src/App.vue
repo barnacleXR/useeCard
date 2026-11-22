@@ -12,6 +12,7 @@ import { api, setCsrf } from './api';
 import { useWorkspace } from './stores/workspace';
 import { oidcMessage, takeHashParam } from './oidc';
 import { clearSnapshot, loadSnapshot, reconcileSnapshot, type OfflineSnapshot } from './offline';
+import { enableReconcileDrafts, clearAllReconcileDrafts } from './reconcileDraft';
 
 const initialTheme = readThemeEnvelope() ? {} : { preset: colors, mode: 'auto' as const };
 const route = useRoute();
@@ -36,6 +37,7 @@ function expired() {
   setCsrf('');
   loggedIn.value = false;
   void clearSnapshot();
+  void clearAllReconcileDrafts();
   offline.value = null;
   error.value = '登录已失效，请重新登录。';
 }
@@ -68,6 +70,7 @@ onMounted(async () => {
       try {
         const session = await api<{ csrf: string }>('/auth/session');
         setCsrf(session.csrf);
+        enableReconcileDrafts();
         loggedIn.value = true;
         const version = await api<{ dataEpoch: string }>('/offline/version');
         await reconcileSnapshot(version.dataEpoch);
@@ -95,6 +98,7 @@ async function login() {
       { username: username.value, password: password.value },
     );
     setCsrf(result.csrf);
+    enableReconcileDrafts();
     password.value = '';
     initialized.value = true;
     loggedIn.value = true;
@@ -114,6 +118,7 @@ async function logout() {
   } finally {
     setCsrf('');
     loggedIn.value = false;
+    await clearAllReconcileDrafts();
     await clearSnapshot();
     offline.value = null;
   }
