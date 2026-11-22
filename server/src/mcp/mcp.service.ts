@@ -65,7 +65,7 @@ export class McpService {
     tool('list_cards', 'cards:read', {title: '列出信用卡', description: '列出信用卡及其默认扣款账户与默认币种。默认不含已归档卡片。', annotations: READ,
       inputSchema: {includeArchived: z.boolean().optional()}},
       ({includeArchived}) => ({cards: this.accounts.cards(owner).filter(c => includeArchived || !c.archivedAt).map(c => ({id: c.id, name: c.name, issuer: c.issuer, last4: c.last4, brand: c.brand,
-        defaultDebitAccountId: c.defaultDebitAccountId, defaultCurrency: c.defaultCurrency, frequency: c.frequency, archived: !!c.archivedAt}))}));
+        defaultDebitAccountId: c.defaultDebitAccountId, defaultCurrency: c.defaultCurrency, defaultDueDay: c.defaultDueDay, frequency: c.frequency, archived: !!c.archivedAt}))}));
 
     tool('list_bills', 'bills:read', {title: '查询账单', description: '按实际扣款月份、币种、状态或卡片查询账单，按扣款日排序，最多返回 200 笔。', annotations: READ,
       inputSchema: {dueMonth: monthSchema.optional().describe('实际扣款月份 YYYY-MM'), currency: currencySchema.optional(), status: billStatusSchema.optional(), cardId: uuid.optional()}},

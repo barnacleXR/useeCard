@@ -43,8 +43,8 @@ test('v1 数据库逐级升级到最新：保留数据，补齐版本、备注�
     old.close();
     const upgraded=new DatabaseService(file);
     try{
-      assert.deepEqual(upgraded.db.prepare('SELECT name,note,version,sortOrder FROM credit_cards').get(),{name:'旧卡',note:'',version:1,sortOrder:1});
-      assert.equal((upgraded.db.prepare('SELECT max(version) AS v FROM schema_migrations').get() as {v:number}).v,12);
+      assert.deepEqual(upgraded.db.prepare('SELECT name,note,version,sortOrder,defaultDueDay FROM credit_cards').get(),{name:'旧卡',note:'',version:1,sortOrder:1,defaultDueDay:null});
+      assert.equal((upgraded.db.prepare('SELECT max(version) AS v FROM schema_migrations').get() as {v:number}).v,13);
       assert.ok(upgraded.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'").get());
       assert.deepEqual(upgraded.db.prepare('SELECT brand,iconAssetId FROM credit_cards').get(),{brand:'',iconAssetId:null});
       assert.deepEqual(upgraded.db.prepare('SELECT reminderDaysBefore,reminderTime FROM users').get(),{reminderDaysBefore:1,reminderTime:'09:00'});

@@ -33,7 +33,7 @@ onBeforeUnmount(() => document.removeEventListener('click', close));
           <CardArtwork class="row-logo" :name="item.name" :asset-id="item.iconAssetId" :last4="item.last4"/>
           <div class="row-name"><strong>{{ item.name }}</strong><span class="card-network-line"><CardBrandBadge :brand="item.brand"/><small>{{ item.brand ? CARD_NETWORKS[item.brand].label : '未指定卡组织' }}{{ item.last4 ? ` · •••• ${item.last4}` : '' }}</small></span></div>
           <div class="row-account"><EntityIcon :name="store.accountById.get(item.defaultDebitAccountId)?.name ?? '?'" :asset-id="store.accountById.get(item.defaultDebitAccountId)?.iconAssetId" :size="22"/><span>{{ store.accountById.get(item.defaultDebitAccountId)?.name }}</span></div>
-          <div class="row-date">{{ item.defaultCurrency }}</div>
+          <div class="row-date">{{ item.defaultCurrency }}{{ item.defaultDueDay ? ` · 每月 ${item.defaultDueDay} 日` : '' }}</div>
           <div class="row-status"><span class="status" :class="{void: item.archivedAt}">{{ item.archivedAt ? '已归档' : item.frequency === 'low' ? '低频' : '常用' }}</span></div>
           <div class="row-order"><button class="quiet icon" :disabled="ordering || index === 0" :aria-label="`上移 ${item.name}`" @click="move('cards', index, -1)">↑</button><button class="quiet icon" :disabled="ordering || index === store.cards.length - 1" :aria-label="`下移 ${item.name}`" @click="move('cards', index, 1)">↓</button></div>
           <div class="row-actions">

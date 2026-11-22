@@ -49,6 +49,11 @@ struct DateOnly: Codable, Hashable, Comparable, Identifiable, CustomStringConver
 
     func adding(days: Int) -> DateOnly { DateOnly(date: Self.calendar.date(byAdding: .day, value: days, to: date)!) }
     func days(until other: DateOnly) -> Int { Self.calendar.dateComponents([.day], from: date, to: other.date).day ?? 0 }
+    /// 从基准日（含）起取最近一次目标日号（小月自动夹到月末，不推算节假日）。
+    static func nextCalendarDay(from today: DateOnly, day: Int) -> DateOnly {
+        let candidate = today.monthKey.clamped(day: day)
+        return candidate >= today ? candidate : today.monthKey.shifted(by: 1).clamped(day: day)
+    }
 
     static func < (lhs: DateOnly, rhs: DateOnly) -> Bool { lhs.string < rhs.string }
 
@@ -79,6 +84,7 @@ struct MonthKey: Codable, Hashable, Comparable, CustomStringConvertible {
     var firstDay: DateOnly { DateOnly(year: year, month: month, day: 1)! }
     var dayCount: Int { DateOnly.calendar.range(of: .day, in: .month, for: firstDay.date)?.count ?? 30 }
     var days: [DateOnly] { (1...dayCount).compactMap { DateOnly(year: year, month: month, day: $0) } }
+    func clamped(day: Int) -> DateOnly { DateOnly(year: year, month: month, day: min(max(day, 1), dayCount))! }
 
     func shifted(by months: Int) -> MonthKey {
         let index = year * 12 + (month - 1) + months
@@ -88,6 +94,12 @@ struct MonthKey: Codable, Hashable, Comparable, CustomStringConvertible {
     static func < (lhs: MonthKey, rhs: MonthKey) -> Bool { lhs.string < rhs.string }
 
     init(year: Int, month: Int) { self.year = year; self.month = month }
+
+    init?(_ string: String) {
+        let parts = string.split(separator: "-").compactMap { Int($0) }
+        guard string.count == 7, parts.count == 2, (1...12).contains(parts[1]) else { return nil }
+        self.init(year: parts[0], month: parts[1])
+    }
 
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)

@@ -149,6 +149,11 @@ export class DatabaseService {
       // 默认计划改为每日后，已有实例未保存过计划时显式保留原来的“关闭”。
       if (this.db.prepare('SELECT 1 FROM users LIMIT 1').get()) this.db.prepare('INSERT OR IGNORE INTO instance_settings(key,value) VALUES(?,?)').run('backupSchedule', JSON.stringify({frequency: 'off', time: '03:00', weekday: 0, retentionDays: 30}));
     })();
+    // v13：信用卡可选常规扣款日（1–31，仅用于录入账单预填，不推算节假日）。
+    if (!this.db.prepare('SELECT 1 FROM schema_migrations WHERE version=13').get()) this.db.transaction(() => {
+      this.db.exec(`ALTER TABLE credit_cards ADD COLUMN defaultDueDay INTEGER CHECK(defaultDueDay IS NULL OR (defaultDueDay BETWEEN 1 AND 31));
+        INSERT INTO schema_migrations(version) VALUES(13);`);
+    })();
     this.db.prepare('INSERT OR IGNORE INTO instance_settings VALUES(?,?)').run('instanceId', randomUUID());
   }
   close() { this.db.close(); }

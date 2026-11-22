@@ -180,6 +180,11 @@ final class AppModel {
         return try await api.get("/bills", query: ["cardId": cardId])
     }
 
+    func billPrefill(cardId: String) async throws -> BillPrefill {
+        guard let api else { throw ClientError.sessionExpired }
+        return try await api.get("/bills/prefill", query: ["cardId": cardId])
+    }
+
     private func saveSnapshot() {
         guard let scope = server?.scope else { return }
         LocalStore.saveSnapshot(Snapshot(syncedAt: lastSync ?? Date(), me: me, currencies: currencies, accounts: accounts, cards: cards, month: month,

@@ -1,20 +1,49 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { SSelect } from '@vean/ui';
-import { currencies, parseMoney, moneyDecimal, type Bill, type Currency } from '@ccm/shared';
+import { computeBillPrefill, currencies, parseMoney, moneyDecimal, type Bill, type BillPrefill, type Currency } from '@ccm/shared';
+import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import DateInput from './fields/DateInput.vue';
 import MonthInput from './fields/MonthInput.vue';
 const props = defineProps<{bill?: Bill}>(); const emit = defineEmits<{close: []}>(); const store = useWorkspace();
+const initialPrefill = props.bill ? null : computeBillPrefill();
 const cardId = ref(props.bill?.cardId || ''); const accountId = ref(props.bill?.debitAccountId || ''); const currency = ref<Currency>(props.bill?.currency || store.defaultCurrency);
 const cardItems = computed(() => store.cards.filter(c => !c.archivedAt || c.id === props.bill?.cardId).map(c => ({value:c.id,label:c.name})));
 const accountItems = computed(() => store.accounts.filter(a => !a.archivedAt || a.id === props.bill?.debitAccountId).map(a => ({value:a.id,label:a.name})));
 const currencyItems = Object.keys(currencies).map(value => ({value,label:value}));
-const amount = ref(props.bill ? moneyDecimal(props.bill.amountMinor, props.bill.currency) : ''); const dueDate = ref(props.bill?.dueDate || ''); const note = ref(props.bill?.note || ''); const statementMonth = ref(props.bill?.statementMonth || '');
-const error = ref(''); const busy = ref(false); let key = crypto.randomUUID(); let lastPayload = '';
-watch(cardId, value => { const card = store.cards.find(c => c.id === value); if (card) { accountId.value = card.defaultDebitAccountId; currency.value = card.defaultCurrency; } });
-async function save() {
-  error.value = '';
+const amount = ref(props.bill ? moneyDecimal(props.bill.amountMinor, props.bill.currency) : '');
+const dueDate = ref(props.bill?.dueDate || initialPrefill?.dueDate || '');
+const note = ref(props.bill?.note || '');
+const statementMonth = ref(props.bill ? (props.bill.statementMonth || '') : (initialPrefill?.statementMonth || ''));
+const dueDateTouched = ref(!!props.bill); const statementMonthTouched = ref(!!props.bill);
+const error = ref(''); const savedNotice = ref(''); const busy = ref(false); const continueNext = ref(false);
+let key = crypto.randomUUID(); let lastPayload = ''; let prefillSeq = 0;
+function onDueDateInput(value: string) { dueDate.value = value; dueDateTouched.value = true; savedNotice.value = ''; }
+function onStatementMonthInput(value: string) { statementMonth.value = value; statementMonthTouched.value = true; savedNotice.value = ''; }
+watch(cardId, async value => {
+  if (value) savedNotice.value = '';
+  const card = store.cards.find(c => c.id === value);
+  if (!card) return;
+  accountId.value = card.defaultDebitAccountId; currency.value = card.defaultCurrency;
+  if (props.bill || (dueDateTouched.value && statementMonthTouched.value)) return;
+  const seq = ++prefillSeq;
+  // 先用卡片常规扣款日同步预填，再以服务端历史规则补齐归属月或无配置卡的历史扣款日。
+  const local = computeBillPrefill({defaultDueDay: card.defaultDueDay});
+  if (!dueDateTouched.value && card.defaultDueDay) dueDate.value = local.dueDate;
+  try {
+    const prefill = await api<BillPrefill>(`/bills/prefill?cardId=${encodeURIComponent(value)}`);
+    if (seq !== prefillSeq || cardId.value !== value) return;
+    if (!dueDateTouched.value) dueDate.value = prefill.dueDate;
+    if (!statementMonthTouched.value) statementMonth.value = prefill.statementMonth;
+  } catch {
+    if (seq !== prefillSeq || cardId.value !== value) return;
+    if (!dueDateTouched.value) dueDate.value = local.dueDate;
+    if (!statementMonthTouched.value) statementMonth.value = local.statementMonth;
+  }
+});
+async function save(andContinue = false) {
+  error.value = ''; savedNotice.value = '';
   if (!cardId.value || !accountId.value) { error.value = '请选择信用卡和扣款账户'; return; }
   if (!dueDate.value) { error.value = '请选择实际扣款日'; return; }
   try {
@@ -25,20 +54,36 @@ async function save() {
     if (changed && !confirm(`币种改为 ${currency.value}，请确认金额 ${amount.value}，系统不会换汇。`)) return;
     const payload = {cardId: cardId.value, debitAccountId: accountId.value, amountMinor, currency: currency.value, dueDate: dueDate.value, statementMonth: statementMonth.value || null, note: note.value, ...(props.bill ? {version: props.bill.version, confirmCurrencyChange: !!changed} : {})};
     const serialized = JSON.stringify(payload); if (lastPayload && serialized !== lastPayload) key = crypto.randomUUID(); lastPayload = serialized;
-    busy.value = true; await store.mutate(props.bill ? `/bills/${props.bill.id}` : '/bills', payload, props.bill ? 'PATCH' : 'POST', props.bill ? undefined : key); emit('close');
-  } catch(e) { error.value = (e as Error).message; } finally { busy.value = false; }
+    busy.value = true; continueNext.value = andContinue;
+    await store.mutate(props.bill ? `/bills/${props.bill.id}` : '/bills', payload, props.bill ? 'PATCH' : 'POST', props.bill ? undefined : key);
+    if (andContinue && !props.bill) {
+      prefillSeq++;
+      cardId.value = ''; accountId.value = ''; amount.value = ''; note.value = '';
+      dueDateTouched.value = false; statementMonthTouched.value = false;
+      key = crypto.randomUUID(); lastPayload = '';
+      savedNotice.value = '已保存，可继续录入下一条';
+    } else {
+      emit('close');
+    }
+  } catch(e) { error.value = (e as Error).message; } finally { busy.value = false; continueNext.value = false; }
 }
 </script>
 <template>
   <div class="modal-backdrop" @click.self="emit('close')"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="bill-title"><header class="row"><h2 id="bill-title">{{ bill ? '编辑账单' : '录入账单' }}</h2><button type="button" class="quiet" :disabled="busy" @click="emit('close')">关闭</button></header>
   <p class="muted">参照信用卡 App 填写银行实际要求偿还的金额与日期。</p>
-  <form class="form-grid" @submit.prevent="save">
+  <form class="form-grid" @submit.prevent="save(false)">
     <div class="field"><span>信用卡</span><SSelect v-model="cardId" :items="cardItems" placeholder="选择信用卡" :trigger-props="{'aria-label':'信用卡'}"/></div>
     <div class="field"><span>扣款账户</span><SSelect v-model="accountId" :items="accountItems" placeholder="选择账户" :trigger-props="{'aria-label':'扣款账户'}"/></div>
     <div class="field"><span>币种</span><SSelect v-model="currency" :items="currencyItems" :trigger-props="{'aria-label':'币种'}"/></div>
-    <label>应还金额<input v-model="amount" required inputmode="decimal" placeholder="银行账单金额"><small v-if="amount === '0'">无新增账单请前往月度检查，不必录入零元。</small></label>
-    <div class="field"><span>实际扣款日</span><DateInput v-model="dueDate" label="实际扣款日"/></div><div class="field"><span>账单归属月（可选）</span><MonthInput v-model="statementMonth" clearable label="账单归属月"/></div>
-    <label class="full">备注<textarea v-model="note" maxlength="1000" rows="2"/></label>
-    <p v-if="error" class="error full" role="alert">{{ error }}</p><button class="primary full" :disabled="busy">{{ busy ? '正在保存…' : '保存账单' }}</button>
+    <label>应还金额<input v-model="amount" required inputmode="decimal" placeholder="银行账单金额" @input="savedNotice = ''"><small v-if="amount === '0'">无新增账单请前往月度检查，不必录入零元。</small></label>
+    <div class="field"><span>实际扣款日</span><DateInput :model-value="dueDate" label="实际扣款日" @update:model-value="onDueDateInput"/></div><div class="field"><span>账单归属月（可选）</span><MonthInput :model-value="statementMonth" clearable label="账单归属月" @update:model-value="onStatementMonthInput"/></div>
+    <label class="full">备注<textarea v-model="note" maxlength="1000" rows="2" @input="savedNotice = ''"/></label>
+    <p v-if="savedNotice" class="saved-notice full" role="status">{{ savedNotice }}</p>
+    <p v-if="error" class="error full" role="alert">{{ error }}</p>
+    <div v-if="!bill" class="modal-actions full">
+      <button type="button" class="quiet" :disabled="busy" @click="save(true)">{{ busy && continueNext ? '正在保存…' : '保存并继续下一条' }}</button>
+      <button type="submit" class="primary" :disabled="busy">{{ busy && !continueNext ? '正在保存…' : '保存账单' }}</button>
+    </div>
+    <button v-else class="primary full" :disabled="busy">{{ busy ? '正在保存…' : '保存账单' }}</button>
   </form></section></div>
 </template>

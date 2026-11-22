@@ -182,3 +182,27 @@ test('提醒计划：按账户＋日期＋币种合并待还账单，提前天�
     assert.equal(big.items.length,60);assert.equal(big.truncated,true);assert.equal(big.items[0].dueDate,'2026-10-22');
   }finally{database.close();}
 });
+test('信用卡常规扣款日与账单预填：优先卡片配置，回退最近非作废账单并沿用归属月差值',()=>{
+  const {database,accounts,bills,owner,account,card,input}=fixture();
+  try{
+    assert.equal(card.defaultDueDay,null);
+    // 无配置无历史：回退到基准日与上月。
+    assert.deepEqual(bills.prefill(owner,card.id,'2026-11-22'),{dueDate:'2026-11-22',statementMonth:'2026-10'});
+    // 作废账单不参与历史推断。
+    const voided=bills.createBill(owner,{...input,dueDate:'2026-10-15',statementMonth:'2026-10'},randomUUID());
+    bills.transition(owner,voided.id,'void',{version:1});
+    assert.deepEqual(bills.prefill(owner,card.id,'2026-11-22'),{dueDate:'2026-11-22',statementMonth:'2026-10'});
+    // 非作废历史账单提供日号与归属月差值（0 个月）。
+    bills.createBill(owner,{...input,dueDate:'2026-10-10',statementMonth:'2026-10'},randomUUID());
+    assert.deepEqual(bills.prefill(owner,card.id,'2026-11-22'),{dueDate:'2026-12-10',statementMonth:'2026-12'});
+    // 配置常规扣款日后优先用卡片配置（27 日），归属月仍沿用该卡历史差值。
+    const updated=accounts.updateCard(owner,card.id,{name:card.name,defaultDebitAccountId:account.id,defaultCurrency:'JPY',defaultDueDay:27,version:card.version}) as unknown as Card;
+    assert.equal(updated.defaultDueDay,27);
+    assert.deepEqual(bills.prefill(owner,card.id,'2026-11-22'),{dueDate:'2026-11-27',statementMonth:'2026-11'});
+    // 清空常规扣款日、非法日号校验与所有权隔离。
+    assert.throws(()=>accounts.createCard(owner,{name:'坏日期',defaultDebitAccountId:account.id,defaultCurrency:'JPY',defaultDueDay:32}));
+    const cleared=accounts.updateCard(owner,card.id,{name:card.name,defaultDebitAccountId:account.id,defaultCurrency:'JPY',defaultDueDay:null,version:updated.version}) as unknown as Card;
+    assert.equal(cleared.defaultDueDay,null);
+    assert.throws(()=>bills.prefill(randomUUID(),card.id,'2026-11-22'),/不存在/);
+  }finally{database.close();}
+});

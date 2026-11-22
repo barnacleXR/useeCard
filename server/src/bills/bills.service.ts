@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
-import { billInput, billSearchInput, billStatusSchema, currencySchema, monthSchema, versionInput, type Bill, type BillPage } from '@ccm/shared';
+import { billInput, billSearchInput, billStatusSchema, computeBillPrefill, currencySchema, japanToday, monthSchema, versionInput, type Bill, type BillPage, type BillPrefill } from '@ccm/shared';
 import { z } from 'zod';
 import { LedgerService } from '../common/ledger.service.js';
 
@@ -39,6 +39,14 @@ export class BillsService {
   bill(owner: string, id: string): Bill {
     this.ledger.owned('bills', owner, id);
     return this.db.prepare(`${SELECT} WHERE b.id=? AND b.ownerId=?`).get(id, owner) as Bill;
+  }
+  // 录入账单的日期预填：优先取卡片常规扣款日，未配置时回退到最近非作废账单日号；归属月沿用历史差值或默认上月。
+  prefill(owner: string, cardId: string, today = japanToday()): BillPrefill {
+    z.string().uuid().parse(cardId);
+    const card = this.ledger.owned('credit_cards', owner, cardId) as unknown as { defaultDueDay: number | null };
+    const lastBill = this.db.prepare("SELECT dueDate FROM bills WHERE ownerId=? AND cardId=? AND status!='void' ORDER BY dueDate DESC, createdAt DESC LIMIT 1").get(owner, cardId) as { dueDate: string } | undefined;
+    const lastStatementPair = this.db.prepare("SELECT dueDate, statementMonth FROM bills WHERE ownerId=? AND cardId=? AND status!='void' AND statementMonth IS NOT NULL ORDER BY dueDate DESC, createdAt DESC LIMIT 1").get(owner, cardId) as { dueDate: string; statementMonth: string } | undefined;
+    return computeBillPrefill({ today, defaultDueDay: card.defaultDueDay ?? null, lastDueDate: lastBill?.dueDate ?? null, lastStatementPair: lastStatementPair ?? null });
   }
   createBill(owner: string, body: unknown, key: string) {
     z.string().uuid().parse(key); const input = billInput.parse(body); const payload = JSON.stringify(input);

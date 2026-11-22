@@ -13,8 +13,9 @@ export const nameSchema = z.string().trim().min(1).max(100);
 export const cardBrands = ['visa', 'mastercard', 'jcb', 'amex', 'diners', 'discover', 'unionpay', 'maestro'] as const;
 export type CardBrand = typeof cardBrands[number];
 const iconAssetSchema = z.string().uuid().nullable().default(null);
+export const dueDaySchema = z.number().int().min(1).max(31).nullable().default(null);
 export const accountInput = z.object({ name: nameSchema, bankName: z.string().trim().max(100).default(''), bankCode: z.string().regex(/^(\d{4})?$/, '金融机构代码须为 4 位数字').default(''), iconAssetId: iconAssetSchema, note: z.string().max(1000).default('') }).strict();
-export const cardInput = z.object({ name: nameSchema, issuer: z.string().max(100).default(''), last4: z.string().regex(/^(\d{4})?$/).default(''), defaultDebitAccountId: z.string().uuid(), defaultCurrency: currencySchema, frequency: z.enum(['regular', 'low']).default('regular'), brand: z.enum(['', ...cardBrands]).default(''), iconAssetId: iconAssetSchema, note: z.string().max(1000).default('') }).strict();
+export const cardInput = z.object({ name: nameSchema, issuer: z.string().max(100).default(''), last4: z.string().regex(/^(\d{4})?$/).default(''), defaultDebitAccountId: z.string().uuid(), defaultCurrency: currencySchema, defaultDueDay: dueDaySchema, frequency: z.enum(['regular', 'low']).default('regular'), brand: z.enum(['', ...cardBrands]).default(''), iconAssetId: iconAssetSchema, note: z.string().max(1000).default('') }).strict();
 export const versionInput = z.object({ version: z.number().int().positive() });
 export const reorderInput = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).strict();
 export const billStatusSchema = z.enum(['pending', 'paid', 'void']);
@@ -46,8 +47,9 @@ export interface PairingCode { code: string; expiresAt: string }
 export interface ReminderItem { key: string; accountId: string; accountName: string; dueDate: string; currency: Currency; amountMinor: number; billCount: number; notifyDate: string; notifyTime: string }
 export interface ReminderPlan { generatedAt: string; today: string; daysBefore: number; notifyTime: string; items: ReminderItem[]; truncated: boolean }
 export interface Account { id: string; name: string; bankName: string; bankCode: string; iconAssetId: string | null; note: string; sortOrder: number; version: number; archivedAt: string | null }
-export interface Card { id: string; name: string; issuer: string; last4: string; defaultDebitAccountId: string; defaultCurrency: Currency; frequency: 'regular' | 'low'; brand: CardBrand | ''; iconAssetId: string | null; note: string; sortOrder: number; version: number; archivedAt: string | null }
+export interface Card { id: string; name: string; issuer: string; last4: string; defaultDebitAccountId: string; defaultCurrency: Currency; defaultDueDay: number | null; frequency: 'regular' | 'low'; brand: CardBrand | ''; iconAssetId: string | null; note: string; sortOrder: number; version: number; archivedAt: string | null }
 export interface Bill extends BillInput { id: string; status: 'pending' | 'paid' | 'void'; version: number; paidAt: string | null; createdAt: string; updatedAt: string; cardName: string; accountName: string }
+export interface BillPrefill { dueDate: string; statementMonth: string }
 export const assetFetchInput = z.object({ url: z.string().trim().url().max(2000) }).strict();
 export const siteIconInput = z.object({ domain: z.string().trim().toLowerCase().regex(/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/, '请输入网站域名，例如 smbc.co.jp') }).strict();
 export const assetUploadInput = z.object({ dataUrl: z.string().max(1_000_000).regex(/^data:image\/[a-z0-9.+-]+;base64,/, '请上传图片') }).strict();
@@ -112,6 +114,46 @@ export function japanToday(now = new Date()): string { return new Intl.DateTimeF
 // date-only 加减自然日，按 UTC 计算以避开本地时区与夏令时。
 export function addDays(date: string, days: number): string { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
 export function japanMonth(): string { return new Intl.DateTimeFormat('sv-SE', {timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit'}).format(new Date()); }
+// 纯日历月份增减与差值（YYYY-MM），不依赖本地时区。
+export function shiftMonth(month: string, delta: number): string {
+  const [year, m] = month.split('-').map(Number);
+  const index = year * 12 + (m - 1) + delta;
+  return `${String(Math.floor(index / 12)).padStart(4, '0')}-${String(index % 12 + 1).padStart(2, '0')}`;
+}
+export function monthDiff(a: string, b: string): number {
+  const [ya, ma] = a.split('-').map(Number);
+  const [yb, mb] = b.split('-').map(Number);
+  return (ya * 12 + ma) - (yb * 12 + mb);
+}
+// 某月指定日号（超出该月天数时夹到月末，不推算银行节假日）。
+export function clampDayInMonth(month: string, day: number): string {
+  const [year, m] = month.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, m, 0)).getUTCDate();
+  return `${month}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+}
+// 从基准日（含）起取最近一次目标日号（小月自动夹到月末，不推算周末或节假日）。
+export function nextCalendarDay(today: string, day: number): string {
+  const month = today.slice(0, 7);
+  const candidate = clampDayInMonth(month, day);
+  return candidate >= today ? candidate : clampDayInMonth(shiftMonth(month, 1), day);
+}
+// 新建账单的日期预填：只按日历日生成建议值，保存前仍以用户按银行 App 核对后的填写为准。
+export function computeBillPrefill(options: {
+  today?: string;
+  defaultDueDay?: number | null;
+  lastDueDate?: string | null;
+  lastStatementPair?: { dueDate: string; statementMonth: string } | null;
+} = {}): BillPrefill {
+  const today = options.today ?? japanToday();
+  const targetDay = options.defaultDueDay ?? (options.lastDueDate ? Number(options.lastDueDate.slice(8, 10)) : null);
+  const dueDate = targetDay && targetDay >= 1 && targetDay <= 31 ? nextCalendarDay(today, targetDay) : today;
+  let offset = -1;
+  if (options.lastStatementPair) {
+    const diff = monthDiff(options.lastStatementPair.statementMonth, options.lastStatementPair.dueDate.slice(0, 7));
+    if (diff >= -3 && diff <= 1) offset = diff;
+  }
+  return { dueDate, statementMonth: shiftMonth(dueDate.slice(0, 7), offset) };
+}
 
 export interface NotificationItem {
   id: string; version: number; kind: 'upcoming' | 'overdue' | 'test'; accountId: string | null; accountName: string;

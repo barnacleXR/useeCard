@@ -58,6 +58,7 @@ struct Card: Codable, Identifiable, Hashable {
     let last4: String
     let defaultDebitAccountId: String
     let defaultCurrency: String
+    let defaultDueDay: Int?
     let frequency: String
     let brand: String
     let iconAssetId: String?
@@ -100,6 +101,12 @@ struct BillInput: Codable, Equatable {
     var dueDate: DateOnly
     var statementMonth: String?
     var note: String
+}
+
+/// 服务端返回的新建账单日期预填结果（纯日历日，不推算节假日）。
+struct BillPrefill: Codable, Equatable {
+    let dueDate: DateOnly
+    let statementMonth: String
 }
 
 struct BillUpdate: Encodable {

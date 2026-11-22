@@ -12,7 +12,9 @@ const store = useWorkspace(); const busy = ref(false); const error = ref(''); co
 const a = props.kind === 'accounts' ? props.item as Account | undefined : undefined;
 const c = props.kind === 'cards' ? props.item as Card | undefined : undefined;
 const account = ref({name: a?.name ?? '', bankName: a?.bankName ?? '', bankCode: a?.bankCode ?? '', iconAssetId: a?.iconAssetId ?? null as string | null, note: a?.note ?? ''});
-const card = ref({name: c?.name ?? '', issuer: c?.issuer ?? '', last4: c?.last4 ?? '', defaultDebitAccountId: c?.defaultDebitAccountId ?? store.accounts.find(x => !x.archivedAt)?.id ?? '', defaultCurrency: c?.defaultCurrency ?? store.defaultCurrency, frequency: c?.frequency ?? 'regular' as Card['frequency'], brand: c?.brand ?? '' as Card['brand'], iconAssetId: c?.iconAssetId ?? null as string | null, note: c?.note ?? ''});
+const card = ref({name: c?.name ?? '', issuer: c?.issuer ?? '', last4: c?.last4 ?? '', defaultDebitAccountId: c?.defaultDebitAccountId ?? store.accounts.find(x => !x.archivedAt)?.id ?? '', defaultCurrency: c?.defaultCurrency ?? store.defaultCurrency, defaultDueDay: c?.defaultDueDay ?? null as number | null, frequency: c?.frequency ?? 'regular' as Card['frequency'], brand: c?.brand ?? '' as Card['brand'], iconAssetId: c?.iconAssetId ?? null as string | null, note: c?.note ?? ''});
+const dueDayModel = computed({get: () => card.value.defaultDueDay ? String(card.value.defaultDueDay) : '', set: (v: string) => { card.value.defaultDueDay = v ? Number(v) : null; }});
+const dueDayItems = [{value:'',label:'未设置'},...Array.from({length: 31}, (_, i) => ({value: String(i + 1), label: `每月 ${i + 1} 日`}))];
 const brandItems = [{value:'',label:'未指定'},...Object.entries(CARD_NETWORKS).map(([value,network]) => ({value,label:network.label}))];
 const accountItems = computed(() => store.accounts.filter(x => !x.archivedAt || x.id === c?.defaultDebitAccountId).map(x => ({value:x.id,label:x.name})));
 const currencyItems = Object.keys(currencies).map(value => ({value,label:value}));
@@ -56,10 +58,11 @@ async function save() {
       <div class="field"><span>默认扣款账户</span><SSelect v-model="card.defaultDebitAccountId" :items="accountItems" placeholder="选择账户" :trigger-props="{'aria-label':'默认扣款账户'}"/></div>
       <div class="form-grid">
         <div class="field"><span>默认币种</span><SSelect v-model="card.defaultCurrency" :items="currencyItems" :trigger-props="{'aria-label':'默认币种'}"/></div>
-        <div class="field"><span>使用频率</span><SSelect v-model="card.frequency" :items="frequencyItems" :trigger-props="{'aria-label':'使用频率'}"/></div>
+        <div class="field"><span>常规扣款日（可选）</span><SSelect v-model="dueDayModel" :items="dueDayItems" :trigger-props="{'aria-label':'常规扣款日'}"/></div>
       </div>
+      <div class="field"><span>使用频率</span><SSelect v-model="card.frequency" :items="frequencyItems" :trigger-props="{'aria-label':'使用频率'}"/></div>
       <label>备注<input v-model="card.note" maxlength="1000"></label>
-      <small v-if="item" class="muted">修改默认账户或币种只影响之后录入的账单。</small>
+      <small v-if="item" class="muted">修改默认账户、币种或常规扣款日只影响之后录入的账单。</small>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button class="primary" :disabled="busy || !store.accounts.some(x => !x.archivedAt)">{{ busy ? '正在保存…' : '保存信用卡' }}</button>
     </form>

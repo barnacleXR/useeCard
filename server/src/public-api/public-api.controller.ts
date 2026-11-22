@@ -47,7 +47,7 @@ export class PublicApiController {
   @Get('cards') cardList(@Req() req: ApiKeyRequest) {
     this.require(req, 'cards:read');
     return {items: this.accounts.cards(req.ownerId).map(c => ({id: c.id, name: c.name, issuer: c.issuer, last4: c.last4, brand: c.brand, defaultDebitAccountId: c.defaultDebitAccountId,
-      defaultCurrency: c.defaultCurrency, frequency: c.frequency, archivedAt: c.archivedAt}))};
+      defaultCurrency: c.defaultCurrency, defaultDueDay: c.defaultDueDay, frequency: c.frequency, archivedAt: c.archivedAt}))};
   }
 
   @Get('bills') billList(@Req() req: ApiKeyRequest, @Query() query: unknown) {

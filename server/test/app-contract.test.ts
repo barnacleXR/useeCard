@@ -9,7 +9,7 @@ import {DatabaseService} from '../src/database.js';
 
 // 与 ios/useeCard/Core/Models.swift 中 Decodable 模型的必填字段一一对应（非可选字段必须存在且类型匹配，可选字段允许 null）。
 // 修改任一侧时同步更新此清单；本测试不运行 Xcode，只校验服务端契约。
-type Kind='string'|'number'|'boolean'|'array'|'object'|'date'|'month'|'string?'|'date?'|'object?';
+type Kind='string'|'number'|'boolean'|'array'|'object'|'date'|'month'|'string?'|'number?'|'date?'|'object?';
 const DATE=/^\d{4}-\d{2}-\d{2}$/, MONTH=/^\d{4}-\d{2}$/;
 const models: Record<string,Record<string,Kind>>={
   ServerInfo:{service:'string',instanceId:'string',name:'string',appApiVersion:'number',authMethods:'array'},
@@ -17,8 +17,9 @@ const models: Record<string,Record<string,Kind>>={
   Me:{username:'string',defaultCurrency:'string',reminderDaysBefore:'number',reminderTime:'string',instanceId:'string',deviceId:'string?'},
   Preferences:{username:'string',defaultCurrency:'string',reminderDaysBefore:'number',reminderTime:'string'},
   Account:{id:'string',name:'string',bankName:'string',bankCode:'string',iconAssetId:'string?',note:'string',version:'number',archivedAt:'string?'},
-  Card:{id:'string',name:'string',issuer:'string',last4:'string',defaultDebitAccountId:'string',defaultCurrency:'string',frequency:'string',brand:'string',iconAssetId:'string?',note:'string',version:'number',archivedAt:'string?'},
+  Card:{id:'string',name:'string',issuer:'string',last4:'string',defaultDebitAccountId:'string',defaultCurrency:'string',defaultDueDay:'number?',frequency:'string',brand:'string',iconAssetId:'string?',note:'string',version:'number',archivedAt:'string?'},
   Bill:{id:'string',cardId:'string',debitAccountId:'string',amountMinor:'number',currency:'string',dueDate:'date',statementMonth:'string?',note:'string',status:'string',version:'number',paidAt:'string?',cardName:'string',accountName:'string'},
+  BillPrefill:{dueDate:'date',statementMonth:'month'},
   FundingSummary:{dueMonth:'month',accounts:'array',historicalPending:'array'},
   AccountGroup:{accountId:'string',accountName:'string',byCurrency:'array'},
   CurrencySummary:{currency:'string',pendingTotalMinor:'number',nextDueDate:'date?',byDate:'array'},
@@ -52,7 +53,7 @@ test('原生 App 契约：各接口返回 Swift 模型所需字段，写入请�
   const setup=await fetch(url+'/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'owner',password:'a-good-password-123'})});
   const cookie=setup.headers.get('set-cookie')!.split(';')[0];const {csrf}=await setup.json() as {csrf:string};const web={'Content-Type':'application/json',Cookie:cookie,'X-CSRF-Token':csrf};
   const account=await json('/api/accounts',{method:'POST',headers:web,body:JSON.stringify({name:'三井住友',bankCode:'0009'})},201);
-  const card=await json('/api/cards',{method:'POST',headers:web,body:JSON.stringify({name:'楽天カード',defaultDebitAccountId:account.id,defaultCurrency:'JPY',brand:'jcb',frequency:'low'})},201);
+  const card=await json('/api/cards',{method:'POST',headers:web,body:JSON.stringify({name:'楽天カード',defaultDebitAccountId:account.id,defaultCurrency:'JPY',defaultDueDay:27,brand:'jcb',frequency:'low'})},201);
 
   conforms('ServerInfo',await json('/api/app/v1/server-info'));
   const {code}=await json('/api/devices/pairing-codes',{method:'POST',headers:web},201);
@@ -75,6 +76,7 @@ test('原生 App 契约：各接口返回 Swift 模型所需字段，写入请�
   const currencies=await json('/api/app/v1/currencies',{headers:auth});assert.equal(currencies.JPY,0);assert.equal(currencies.USD,2);
   (await json('/api/app/v1/accounts',{headers:auth})).forEach((a:unknown)=>conforms('Account',a));
   (await json('/api/app/v1/cards',{headers:auth})).forEach((c:unknown)=>conforms('Card',c));
+  conforms('BillPrefill',await json(`/api/app/v1/bills/prefill?cardId=${card.id}`,{headers:auth}));
   const bills=await json(`/api/app/v1/bills?dueMonth=${month}`,{headers:auth});assert.equal(bills.length,1);bills.forEach((b:unknown)=>conforms('Bill',b));
   assert.equal((await json(`/api/app/v1/bills?cardId=${card.id}`,{headers:auth})).length,1);
   const summary=await json(`/api/app/v1/summary?dueMonth=${month}`,{headers:auth});conforms('FundingSummary',summary);

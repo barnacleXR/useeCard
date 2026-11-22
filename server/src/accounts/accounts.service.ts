@@ -11,7 +11,7 @@ export class AccountsService {
   constructor(@Inject(LedgerService) private readonly ledger: LedgerService) {}
   private get db() { return this.ledger.db; }
   accounts(owner: string): Account[] { return this.db.prepare('SELECT id,name,bankName,bankCode,iconAssetId,note,sortOrder,version,archivedAt FROM bank_accounts WHERE ownerId=? ORDER BY sortOrder,rowid').all(owner) as Account[]; }
-  cards(owner: string): Card[] { return this.db.prepare('SELECT id,name,issuer,last4,defaultDebitAccountId,defaultCurrency,frequency,brand,iconAssetId,note,sortOrder,version,archivedAt FROM credit_cards WHERE ownerId=? ORDER BY sortOrder,rowid').all(owner) as Card[]; }
+  cards(owner: string): Card[] { return this.db.prepare('SELECT id,name,issuer,last4,defaultDebitAccountId,defaultCurrency,defaultDueDay,frequency,brand,iconAssetId,note,sortOrder,version,archivedAt FROM credit_cards WHERE ownerId=? ORDER BY sortOrder,rowid').all(owner) as Card[]; }
   // 图标只能引用本人上传或抓取的图片资产。
   private ownedAsset(owner: string, assetId: string | null) {
     if (assetId && !this.db.prepare('SELECT 1 FROM assets WHERE id=? AND ownerId=?').get(assetId, owner)) throw new BadRequestException('图标不存在，请重新选择');
@@ -27,7 +27,7 @@ export class AccountsService {
   createCard(owner: string, body: unknown) {
     const input = cardInput.parse(body); this.ledger.owned('bank_accounts', owner, input.defaultDebitAccountId, true); this.ownedAsset(owner, input.iconAssetId); const id = randomUUID();
     return this.db.transaction(() => {
-      this.db.prepare('INSERT INTO credit_cards(id,ownerId,name,issuer,last4,defaultDebitAccountId,defaultCurrency,frequency,brand,iconAssetId,note,sortOrder) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(id, owner, input.name, input.issuer, input.last4, input.defaultDebitAccountId, input.defaultCurrency, input.frequency, input.brand, input.iconAssetId, input.note, this.nextOrder('credit_cards', owner));
+      this.db.prepare('INSERT INTO credit_cards(id,ownerId,name,issuer,last4,defaultDebitAccountId,defaultCurrency,defaultDueDay,frequency,brand,iconAssetId,note,sortOrder) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id, owner, input.name, input.issuer, input.last4, input.defaultDebitAccountId, input.defaultCurrency, input.defaultDueDay, input.frequency, input.brand, input.iconAssetId, input.note, this.nextOrder('credit_cards', owner));
       this.ledger.audit(owner, 'card.create', id, input); return this.ledger.owned('credit_cards', owner, id);
     })();
   }
@@ -40,13 +40,13 @@ export class AccountsService {
       this.ledger.audit(owner, 'account.update', id, {before, after: input}); return this.ledger.owned('bank_accounts', owner, id);
     })();
   }
-  // 修改卡片只影响之后的默认值，不改写已有账单的扣款账户与币种。
+  // 修改卡片只影响之后的默认值，不改写已有账单的扣款账户、币种与日期。
   updateCard(owner: string, id: string, body: unknown) {
     const input = cardInput.extend(versionInput.shape).parse(body);
     return this.db.transaction(() => {
       const before = this.ledger.owned('credit_cards', owner, id);
       this.ledger.owned('bank_accounts', owner, input.defaultDebitAccountId, input.defaultDebitAccountId !== before.defaultDebitAccountId); this.ownedAsset(owner, input.iconAssetId);
-      const result = this.db.prepare('UPDATE credit_cards SET name=?,issuer=?,last4=?,defaultDebitAccountId=?,defaultCurrency=?,frequency=?,brand=?,iconAssetId=?,note=?,version=version+1 WHERE id=? AND ownerId=? AND version=?').run(input.name, input.issuer, input.last4, input.defaultDebitAccountId, input.defaultCurrency, input.frequency, input.brand, input.iconAssetId, input.note, id, owner, input.version);
+      const result = this.db.prepare('UPDATE credit_cards SET name=?,issuer=?,last4=?,defaultDebitAccountId=?,defaultCurrency=?,defaultDueDay=?,frequency=?,brand=?,iconAssetId=?,note=?,version=version+1 WHERE id=? AND ownerId=? AND version=?').run(input.name, input.issuer, input.last4, input.defaultDebitAccountId, input.defaultCurrency, input.defaultDueDay, input.frequency, input.brand, input.iconAssetId, input.note, id, owner, input.version);
       if (!result.changes) throw new ConflictException('记录已更新，请刷新后重新编辑');
       this.ledger.audit(owner, 'card.update', id, {before, after: input}); return this.ledger.owned('credit_cards', owner, id);
     })();

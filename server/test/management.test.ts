@@ -77,11 +77,12 @@ test('管理：旧 v11 JSON 包在隔离库迁移后恢复，失败不覆盖当�
     ALTER TABLE audit_events DROP COLUMN location;ALTER TABLE audit_events DROP COLUMN userAgent;ALTER TABLE audit_events DROP COLUMN ip;
     ALTER TABLE audit_events DROP COLUMN authMethod;ALTER TABLE audit_events DROP COLUMN outcome;ALTER TABLE audit_events DROP COLUMN source;
     ALTER TABLE sessions DROP COLUMN rolling;ALTER TABLE users DROP COLUMN avatar;ALTER TABLE users DROP COLUMN contactEmail;ALTER TABLE users DROP COLUMN displayName;
-    DELETE FROM schema_migrations WHERE version=12;`);
+    ALTER TABLE credit_cards DROP COLUMN defaultDueDay;
+    DELETE FROM schema_migrations WHERE version>=12;`);
   const counts=Object.fromEntries((old.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as {name:string}[]).map(v=>[v.name,(old.prepare(`SELECT count(*) n FROM "${v.name}"`).get() as {n:number}).n]));old.close();
   const bytes=readFileSync(oldPath);legacy.databaseBase64=bytes.toString('base64');legacy.meta={...legacy.meta,schemaVersion:11,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),counts};
   const restored=await backup.restore(f.owner,{password:f.password,backup:legacy});assert.equal(restored.ok,true);
-  assert.equal((f.db.prepare('SELECT max(version) v FROM schema_migrations').get() as {v:number}).v,12);
+  assert.equal((f.db.prepare('SELECT max(version) v FROM schema_migrations').get() as {v:number}).v,13);
   assert.equal((f.db.prepare('SELECT count(*) n FROM push_subscriptions').get() as {n:number}).n,0);
  }finally{await f.cleanup();}});
 
