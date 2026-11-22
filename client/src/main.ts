@@ -24,6 +24,9 @@ const routes = [
   {path: '/:pathMatch(.*)*', redirect: '/'},
 ];
 const router = createRouter({history: createWebHistory(), routes});
-router.afterEach(to => { document.title = `${to.meta.title || 'useeCard'} · useeCard`; });
+router.afterEach(to => {
+  document.title = `${to.meta.title || 'useeCard'} · useeCard`;
+  if (!document.querySelector('[data-dismissable-layer]')) document.body.style.removeProperty('pointer-events');
+});
 createApp(App).use(createPinia()).use(router).mount('#app');
 if('serviceWorker' in navigator)window.addEventListener('load',()=>{void navigator.serviceWorker.register('/sw.js');});

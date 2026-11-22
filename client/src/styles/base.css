@@ -1,0 +1,618 @@
+/* 基础重置、排版、按钮、表单控件与通用语义类 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+small {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.muted,
+small {
+  color: var(--text-muted);
+}
+
+.num,
+.amount-large,
+.stat-value,
+.row-price,
+.row-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ===== 按钮体系：严格统一高度 36px 与圆角 9px ===== */
+.primary,
+.quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.primary {
+  background: var(--brand);
+  color: var(--brand-fg);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-xs);
+}
+
+.primary:not(:disabled):hover {
+  background: var(--brand-hover);
+}
+
+.quiet {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  border: 1px solid var(--line-default);
+}
+
+.quiet:not(:disabled):hover {
+  background: var(--surface-hover);
+  border-color: var(--line-strong);
+}
+
+.quiet.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.quiet.ghost:not(:disabled):hover {
+  background: var(--surface-hover);
+  border-color: transparent;
+  color: var(--text-primary);
+}
+
+.quiet.icon,
+.icon-button {
+  width: var(--control-h);
+  min-width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+}
+
+.quiet.sm,
+.primary.sm {
+  height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.quiet.icon.sm {
+  width: var(--control-h-sm);
+  min-width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.link,
+.link-button {
+  color: var(--brand);
+  font-weight: 560;
+  text-decoration: none;
+}
+
+.link:hover,
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+:where(
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='combobox']
+):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ===== 面板与分组容器 ===== */
+.panel {
+  background: var(--surface-card);
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+}
+
+.panel + .panel {
+  margin-top: 16px;
+}
+
+.panel hr {
+  border: 0;
+  border-top: 1px solid var(--line-subtle);
+  margin: 22px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ===== 状态徽章 ===== */
+.badge,
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 580;
+  line-height: 1.3;
+  white-space: nowrap;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.status.paid,
+.status.no_new,
+.status.reviewed {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.status.pending {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.status.unreviewed {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.status.void {
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+/* ===== 提示条 ===== */
+.error,
+.notice,
+.saved-notice {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
+
+.error {
+  background: var(--danger-soft);
+  border-color: rgba(220, 38, 38, 0.22);
+  color: var(--danger);
+}
+
+.notice {
+  background: var(--warn-soft);
+  border-color: rgba(180, 83, 9, 0.22);
+  color: var(--warn);
+}
+
+.saved-notice {
+  background: var(--ok-soft);
+  border-color: rgba(21, 128, 61, 0.22);
+  color: var(--ok);
+}
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.empty h2 {
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.empty p {
+  margin-bottom: 14px;
+}
+
+/* ===== 表单控件：与 @vean/ui SSelect / DateInput 严格同高 36px 同描边 ===== */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+label,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+.field > span,
+.field-label {
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 450;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+input[type='file'] {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border: 1px dashed var(--line-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+
+textarea {
+  height: auto;
+  min-height: 76px;
+  padding: 9px 11px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input:not([type='checkbox']):not([type='radio']):hover,
+select:hover,
+textarea:hover {
+  border-color: var(--line-strong);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 480;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--brand);
+  flex-shrink: 0;
+}
+
+/* 统一 @vean/ui SSelect / DateInput / TimeInput / MonthInput 外观 */
+.field [role='combobox'],
+.filter-select [role='combobox'] {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  width: 100%;
+  padding: 0 11px;
+  background: var(--surface-card);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 450;
+  box-shadow: none;
+}
+
+.field [role='combobox']:hover,
+.filter-select [role='combobox']:hover {
+  border-color: var(--line-strong);
+}
+
+.month-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.month-input-trigger {
+  flex: 1;
+  min-width: 112px;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 520;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+
+.month-input-trigger:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-hover);
+}
+
+.month-input-trigger.placeholder {
+  color: var(--text-muted);
+  font-weight: 450;
+}
+
+.month-input .quiet.icon {
+  width: var(--control-h);
+  min-width: var(--control-h);
+  height: var(--control-h);
+  font-size: 15px;
+}
+
+.month-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 228px;
+}
+
+.month-panel-head {
+  align-items: center;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.month-cell {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 7px 0;
+  font-size: 13px;
+}
+
+.month-cell:hover {
+  background: var(--surface-hover);
+}
+
+.month-cell.today {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.month-cell.selected {
+  background: var(--brand);
+  color: var(--brand-fg);
+}
+
+.month-panel-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.date-range-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-range-input > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.date-range-input .is-hidden {
+  visibility: hidden;
+}
+
+.field > .date-input,
+.field > .time-input {
+  width: 100%;
+  min-height: var(--control-h);
+}
+
+.date-range-input > :first-child,
+.field > .date-input,
+.field > .time-input {
+  background: var(--surface-card);
+  border-color: var(--line-default);
+  border-radius: var(--radius-md);
+}
+
+/* ===== 工具栏与分页 ===== */
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar .field {
+  min-width: 132px;
+}
+
+.toolbar .date-range-field {
+  min-width: 250px;
+  flex: 2 1 250px;
+}
+
+.toolbar .filter-select {
+  min-width: 132px;
+  flex: 1 1 132px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line-subtle);
+  font-size: 12px;
+}
+
+.master-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .panel {
+    padding: 16px;
+  }
+  .toolbar .field,
+  .toolbar .date-range-field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .toolbar .filter-select {
+    min-width: calc(50% - 6px);
+    flex: 1 1 calc(50% - 6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

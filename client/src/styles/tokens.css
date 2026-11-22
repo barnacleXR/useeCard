@@ -1,0 +1,101 @@
+/* 设计令牌：现代极简金融风（浅色中性灰白 / 暗色纯净深炭），单一克制主色与极淡 1px 描边 */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* 表面层级 */
+  --surface-canvas: #f7f8fa;
+  --surface-sidebar: #f2f4f7;
+  --surface-card: #ffffff;
+  --surface-subtle: #f3f4f6;
+  --surface-hover: #eef0f4;
+  --surface-popover: #ffffff;
+
+  /* 文字层级 */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+
+  /* 边框层级：极低饱和度 */
+  --line-subtle: rgba(15, 23, 42, 0.07);
+  --line-default: rgba(15, 23, 42, 0.105);
+  --line-strong: rgba(15, 23, 42, 0.155);
+
+  /* 语义色 */
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-soft: rgba(37, 99, 235, 0.09);
+  --brand-fg: #ffffff;
+
+  --ok: #15803d;
+  --ok-soft: rgba(21, 128, 61, 0.1);
+  --warn: #b45309;
+  --warn-soft: rgba(180, 83, 9, 0.11);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.09);
+
+  /* 尺寸与圆角 */
+  --control-h: 36px;
+  --control-h-sm: 30px;
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* 阴影：轻克制 */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-drawer: -12px 0 40px rgba(15, 23, 42, 0.14);
+
+  /* 布局尺寸 */
+  --sidebar-w: 236px;
+  --sidebar-collapsed-w: 66px;
+  --mobile-topbar-h: 54px;
+  --mobile-tabbar-h: 60px;
+
+  /* 过渡 */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --surface-canvas: #0b0d11;
+  --surface-sidebar: #0e1116;
+  --surface-card: #13161d;
+  --surface-subtle: #181c25;
+  --surface-hover: #1e232e;
+  --surface-popover: #171b24;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #8b95a5;
+  --text-faint: #647084;
+
+  --line-subtle: rgba(255, 255, 255, 0.065);
+  --line-default: rgba(255, 255, 255, 0.105);
+  --line-strong: rgba(255, 255, 255, 0.18);
+
+  --brand: #3b82f6;
+  --brand-hover: #60a5fa;
+  --brand-soft: rgba(59, 130, 246, 0.16);
+  --brand-fg: #ffffff;
+
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.45);
+  --shadow-drawer: -16px 0 48px rgba(0, 0, 0, 0.52);
+
+  color-scheme: dark;
+}

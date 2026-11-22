@@ -9,7 +9,7 @@ export const useWorkspace = defineStore('workspace', () => {
   const report = ref<{byCurrency: {currency: Currency; pendingMinor: number; paidMinor: number; totalMinor: number; billCount: number}[]}>({byCurrency: []});
   const reviews = ref<Review[]>([]); const error = ref(''); const busy = ref(false); const defaultCurrency = ref<Currency>('JPY');
   // 每次成功刷新递增；自行取数的页面（如账单分页）据此重新加载。
-  const revision = ref(0); const themePanel = ref(false);
+  const revision = ref(0);
   let sequence = 0;
   async function refresh() {
     const ticket = ++sequence; busy.value = true; error.value = '';
@@ -31,5 +31,5 @@ export const useWorkspace = defineStore('workspace', () => {
   const accountById = computed(() => new Map(accounts.value.map(a => [a.id, a])));
   const cardById = computed(() => new Map(cards.value.map(c => [c.id, c])));
   watch([month, currency, reviewMonth], () => { void refresh(); });
-  return {month, reviewMonth, currency, accounts, cards, bills, summary, report, reviews, error, busy, defaultCurrency, revision, themePanel, accountById, cardById, refresh, mutate};
+  return {month, reviewMonth, currency, accounts, cards, bills, summary, report, reviews, error, busy, defaultCurrency, revision, accountById, cardById, refresh, mutate};
 });
