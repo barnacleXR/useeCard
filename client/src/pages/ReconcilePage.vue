@@ -270,47 +270,42 @@ const result = computed(() =>
   }),
 );
 
-// 当核验结果变化时，同步清理失效勾选，并为新唯一命中的 pending 账单默认勾选。
-watch(
-  result,
-  res => {
-    if (restoring.value || loadingBills.value) return;
-    // 不再有效的人工匹配不能继续用于提交。
-    const valid = new Map(res.ambiguous.map(item => [item.bill.id, new Set(item.candidates.map(c => c.transaction.id))]));
-    const selections = Object.fromEntries(Object.entries(manualSelections.value).filter(([billId, txId]) => valid.get(billId)?.has(txId)));
-    if (Object.keys(selections).length !== Object.keys(manualSelections.value).length) {
-      manualSelections.value = selections;
-      return;
-    }
-    const nextChecked = new Set<string>();
-    const pendingMatchedIds = new Set(res.matched.filter(m => m.bill.status === 'pending').map(m => m.bill.id));
-    for (const id of pendingMatchedIds) {
-      if (!userUncheckedIds.value.has(id)) nextChecked.add(id);
-    }
-    for (const item of res.ambiguous) {
-      if (item.bill.status !== 'pending') continue;
-      const chosen = manualSelections.value[item.bill.id];
-      if (chosen && item.candidates.some(c => c.transaction.id === chosen)) {
-        if (checkedIds.value.has(item.bill.id) || !userUncheckedIds.value.has(item.bill.id)) {
-          nextChecked.add(item.bill.id);
-        }
-      }
-    }
-    checkedIds.value = nextChecked;
-  },
-  { immediate: true },
-);
-
-watch(loadingBills, busy => {
-  if (!busy && !restoring.value) {
-    // 获取最新账单后才允许核验选择生效。
-    const resultNow = result.value;
-    const validBillIds = new Set([...resultNow.matched, ...resultNow.ambiguous].map(item => item.bill.id));
-    checkedIds.value = new Set([...checkedIds.value].filter(id => validBillIds.has(id)));
-    const validChoices = new Map(resultNow.ambiguous.map(item => [item.bill.id, new Set(item.candidates.map(c => c.transaction.id))]));
-    manualSelections.value = Object.fromEntries(Object.entries(manualSelections.value).filter(([id, tx]) => validChoices.get(id)?.has(tx)));
+// 重新读取服务器账单后再判断哪些手动选择仍然有效；不缓存旧的匹配结论。
+function reconcileSelections() {
+  if (restoring.value || loadingBills.value) return;
+  const current = result.value;
+  const validChoices = new Map(current.ambiguous.map(item => [
+    item.bill.id,
+    new Set(item.candidates.map(candidate => candidate.transaction.id)),
+  ]));
+  const nextSelections = Object.fromEntries(
+    Object.entries(manualSelections.value).filter(([billId, txId]) => validChoices.get(billId)?.has(txId)),
+  );
+  if (Object.keys(nextSelections).length !== Object.keys(manualSelections.value).length) {
+    manualSelections.value = nextSelections;
+    return; // 重新计算匹配结果后再次校验。
   }
-});
+  const nextChecked = new Set<string>();
+  for (const item of current.matched) {
+    if (item.bill.status === 'pending' && !userUncheckedIds.value.has(item.bill.id)) {
+      nextChecked.add(item.bill.id);
+    }
+  }
+  for (const item of current.ambiguous) {
+    if (item.bill.status !== 'pending') continue;
+    const chosen = manualSelections.value[item.bill.id];
+    if (chosen && validChoices.get(item.bill.id)?.has(chosen) && !userUncheckedIds.value.has(item.bill.id)) {
+      nextChecked.add(item.bill.id);
+    }
+  }
+  if ([...nextChecked].some(id => !checkedIds.value.has(id)) ||
+      [...checkedIds.value].some(id => !nextChecked.has(id))) {
+    checkedIds.value = nextChecked;
+  }
+}
+
+watch(result, reconcileSelections, { immediate: true });
+watch(loadingBills, busy => { if (!busy) reconcileSelections(); });
 
 function toggleCheck(billId: string, checked: boolean) {
   const next = new Set(checkedIds.value);
