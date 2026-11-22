@@ -394,7 +394,16 @@ async function confirmSelectedPaid() {
 
 function currentDraft(): ReconcileDraft {
   return {
-    sources: sources.value.map(({ parsed: _parsed, ...source }) => source),
+    sources: sources.value.map(source => ({
+      id: source.id,
+      label: source.label,
+      encoding: source.encoding,
+      preset: source.preset,
+      rows: source.rows.map(row => [...row]),
+      accountId: source.accountId,
+      currency: source.currency,
+      mapping: { ...source.mapping },
+    })),
     tolerance: tolerance.value,
     includePaid: includePaid.value,
     manualRange: manualRange.value,
