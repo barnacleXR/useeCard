@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { SSelect, SIcon } from '@vean/ui';
 import {
   buildPresetMapping,
@@ -23,12 +23,17 @@ import {
 import { api } from '../api';
 import { shortDate } from '../format';
 import { useWorkspace } from '../stores/workspace';
+import { loadReconcileDraft, saveReconcileDraft, clearReconcileDraft, type ReconcileDraft } from '../reconcileDraft';
 import PageShell from '../components/PageShell.vue';
 import BillEditor from '../components/BillEditor.vue';
 import DateRangeInput from '../components/fields/DateRangeInput.vue';
 import StatementSourceCard, { type StatementSource } from '../components/StatementSourceCard.vue';
 
 const store = useWorkspace();
+const restoring = ref(true);
+const cacheError = ref('');
+let cacheOwner = '';
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 const sources = ref<StatementSource[]>([]);
 const dragging = ref(false);
@@ -160,6 +165,7 @@ function clearAllSources() {
   manualRange.value = false;
   rangeFrom.value = '';
   rangeTo.value = '';
+  if (cacheOwner) void clearReconcileDraft(cacheOwner).catch(e => { cacheError.value = (e as Error).message; });
 }
 
 const autoRange = computed(() => {
@@ -205,6 +211,7 @@ const allTransactions = computed<BankTransaction[]>(() =>
 );
 
 async function fetchBills() {
+  if (restoring.value) return;
   const accounts = boundAccountIds.value;
   if (!accounts.length || !rangeFrom.value || !rangeTo.value) {
     bills.value = [];
@@ -249,7 +256,7 @@ async function fetchBills() {
 
 watch(
   [boundAccountIds, rangeFrom, rangeTo, () => store.revision],
-  () => void fetchBills(),
+  () => { if (!restoring.value) void fetchBills(); },
   { immediate: true },
 );
 
@@ -267,6 +274,14 @@ const result = computed(() =>
 watch(
   result,
   res => {
+    if (restoring.value || loadingBills.value) return;
+    // 不再有效的人工匹配不能继续用于提交。
+    const valid = new Map(res.ambiguous.map(item => [item.bill.id, new Set(item.candidates.map(c => c.transaction.id))]));
+    const selections = Object.fromEntries(Object.entries(manualSelections.value).filter(([billId, txId]) => valid.get(billId)?.has(txId)));
+    if (Object.keys(selections).length !== Object.keys(manualSelections.value).length) {
+      manualSelections.value = selections;
+      return;
+    }
     const nextChecked = new Set<string>();
     const pendingMatchedIds = new Set(res.matched.filter(m => m.bill.status === 'pending').map(m => m.bill.id));
     for (const id of pendingMatchedIds) {
@@ -285,6 +300,17 @@ watch(
   },
   { immediate: true },
 );
+
+watch(loadingBills, busy => {
+  if (!busy && !restoring.value) {
+    // 获取最新账单后才允许核验选择生效。
+    const resultNow = result.value;
+    const validBillIds = new Set([...resultNow.matched, ...resultNow.ambiguous].map(item => item.bill.id));
+    checkedIds.value = new Set([...checkedIds.value].filter(id => validBillIds.has(id)));
+    const validChoices = new Map(resultNow.ambiguous.map(item => [item.bill.id, new Set(item.candidates.map(c => c.transaction.id))]));
+    manualSelections.value = Object.fromEntries(Object.entries(manualSelections.value).filter(([id, tx]) => validChoices.get(id)?.has(tx)));
+  }
+});
 
 function toggleCheck(billId: string, checked: boolean) {
   const next = new Set(checkedIds.value);
@@ -371,8 +397,70 @@ async function confirmSelectedPaid() {
   submitting.value = false;
 }
 
+function currentDraft(): ReconcileDraft {
+  return {
+    sources: sources.value.map(({ parsed: _parsed, ...source }) => source),
+    tolerance: tolerance.value,
+    includePaid: includePaid.value,
+    manualRange: manualRange.value,
+    rangeFrom: rangeFrom.value,
+    rangeTo: rangeTo.value,
+    manualSelections: { ...manualSelections.value },
+    checkedIds: [...checkedIds.value],
+    userUncheckedIds: [...userUncheckedIds.value],
+  };
+}
+
+function persistDraft() {
+  if (restoring.value || !cacheOwner) return;
+  void saveReconcileDraft(cacheOwner, currentDraft()).catch(e => {
+    cacheError.value = (e as Error).message;
+  });
+}
+
+watch(
+  [sources, tolerance, includePaid, manualRange, rangeFrom, rangeTo, manualSelections, checkedIds, userUncheckedIds],
+  () => {
+    if (restoring.value || !cacheOwner) return;
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(persistDraft, 350);
+  },
+  { deep: true },
+);
+
+onMounted(async () => {
+  try {
+    const profile = await api<{ username: string }>('/profile');
+    cacheOwner = profile.username;
+    const draft = await loadReconcileDraft(cacheOwner);
+    if (draft) {
+      const activeAccountIds = new Set(store.accounts.map(a => a.id));
+      sources.value = draft.sources
+        .filter(s => Array.isArray(s.rows) && s.rows.length > 0)
+        .map(s => reparseSource({ ...s, accountId: activeAccountIds.has(s.accountId) ? s.accountId : '' }));
+      sourceSeq = sources.value.length;
+      tolerance.value = draft.tolerance;
+      includePaid.value = draft.includePaid;
+      manualRange.value = draft.manualRange;
+      manualSelections.value = draft.manualSelections ?? {};
+      checkedIds.value = new Set(draft.checkedIds ?? []);
+      userUncheckedIds.value = new Set(draft.userUncheckedIds ?? []);
+      if (draft.manualRange) {
+        rangeFrom.value = draft.rangeFrom;
+        rangeTo.value = draft.rangeTo;
+      }
+    }
+  } catch (e) {
+    cacheError.value = `无法恢复本机核验进度：${(e as Error).message}`;
+  } finally {
+    restoring.value = false;
+    await fetchBills();
+  }
+});
+
 onBeforeUnmount(() => {
-  sources.value = [];
+  clearTimeout(persistTimer);
+  persistDraft();
   pasteText.value = '';
   bills.value = [];
 });
@@ -387,6 +475,8 @@ onBeforeUnmount(() => {
       </RouterLink>
     </template>
 
+    <p v-if="cacheError" class="error" role="alert">{{ cacheError }}</p>
+    <p v-if="restoring" class="muted">正在恢复本机核验进度…</p>
     <!-- 1. 导入流水区 -->
     <section class="panel stack" style="margin-bottom: 16px">
       <div
