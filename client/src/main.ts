@@ -10,6 +10,7 @@ declare module 'vue-router' { interface RouteMeta { title: string; subtitle: str
 const routes = [
   {path: '/', component: () => import('./pages/SummaryPage.vue'), meta: {title: '备款汇总', subtitle: '知道哪天、哪个账户，需要准备多少钱。'}},
   {path: '/bills', component: () => import('./pages/BillsPage.vue'), meta: {title: '账单', subtitle: '金额和实际扣款日，以银行 App 为准。'}},
+  {path: '/bills/reconcile', component: () => import('./pages/ReconcilePage.vue'), meta: {title: '扣款核验', subtitle: '浏览器本地解析银行流水，按账户、币种、金额与日期窗口核对账单；原始流水不会上传服务器。'}},
   {path: '/calendar', component: () => import('./pages/CalendarPage.vue'), meta: {title: '扣款日历', subtitle: '按日期查看已录入的还款安排。'}},
   {path: '/reports', component: () => import('./pages/ReportsPage.vue'), meta: {title: '月报', subtitle: '只统计实际扣款月份，不混合不同币种。'}},
   {path: '/reviews', component: () => import('./pages/ReviewsPage.vue'), meta: {title: '月度检查', subtitle: '没用的卡，不必逐张填零。'}},

@@ -48,6 +48,18 @@ let key = crypto.randomUUID();
 let lastPayload = '';
 let prefillSeq = 0;
 
+function onAmountInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  // 粘贴或输入带千分位逗号、货币符号、空格或全角数字时自动清理，便于直接复制银行 App 金额。
+  const cleaned = input.value
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/．/g, '.')
+    .replace(/[,，\s\u3000¥￥円]/g, '');
+  if (input.value !== cleaned) input.value = cleaned;
+  amount.value = cleaned;
+  savedNotice.value = '';
+}
+
 function onDueDateInput(value: string) {
   dueDate.value = value;
   dueDateTouched.value = true;
@@ -193,11 +205,11 @@ async function save(andContinue = false) {
       <label>
         应还金额
         <input
-          v-model="amount"
+          :value="amount"
           required
           inputmode="decimal"
           placeholder="银行账单金额"
-          @input="savedNotice = ''"
+          @input="onAmountInput"
         />
         <small v-if="amount === '0'">无新增账单请前往月度检查，不必录入零元。</small>
       </label>

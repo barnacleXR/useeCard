@@ -60,7 +60,7 @@ const dayBills = computed(() => active.value.filter(b => b.dueDate === selectedD
           <h2 class="section-title">{{ selectedDay ? `${shortDate(selectedDay)} 扣款明细` : '选择日期查看明细' }}</h2>
         </div>
         <div v-if="!selectedDay" class="panel empty">点击左侧任意日期，查看当日已录入的扣款安排。</div>
-        <BillList v-else :bills="dayBills" empty="这一天没有账单。" />
+        <BillList v-else :bills="dayBills" empty="这一天没有账单。" hide-date />
       </section>
     </div>
   </PageShell>

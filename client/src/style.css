@@ -540,9 +540,13 @@ html.dark .entity-icon.mono {
 /* ===== 日历页：双栏日历与明细 ===== */
 .calendar-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr);
   gap: 20px;
   align-items: start;
+}
+
+.calendar-layout > * {
+  min-width: 0;
 }
 
 .calendar-grid {
@@ -598,7 +602,7 @@ html.dark .entity-icon.mono {
   color: var(--brand);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1080px) {
   .calendar-layout {
     grid-template-columns: 1fr;
   }

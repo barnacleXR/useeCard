@@ -682,10 +682,20 @@
   opacity: 0.55;
 }
 
-/* 账单表列对齐 */
+/* 账单表容器：宽容器表格式，窄容器（如日历侧栏、移动端）自动切换为紧凑双行卡片 */
+.bill-table {
+  container-name: bill-list;
+  container-type: inline-size;
+}
+
 .bill-cols {
-  grid-template-columns: 52px minmax(0, 2.2fr) minmax(0, 1.5fr) 104px 86px minmax(100px, 1fr) 36px;
+  grid-template-columns: 52px minmax(140px, 2.2fr) minmax(120px, 1.5fr) 96px 82px minmax(100px, 1fr) 34px;
   grid-template-areas: 'logo name account date status price actions';
+}
+
+.bill-table.hide-date .bill-cols {
+  grid-template-columns: 52px minmax(140px, 2.2fr) minmax(120px, 1.5fr) 82px minmax(100px, 1fr) 34px;
+  grid-template-areas: 'logo name account status price actions';
 }
 
 .data-table-head.bill-cols .col-price {
@@ -728,10 +738,12 @@
   min-width: 0;
 }
 
-.row-account span {
+.row-account-name,
+.row-account > span:not(.entity-icon) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .row-date {
@@ -815,27 +827,75 @@
   color: var(--danger);
 }
 
-@media (max-width: 820px) {
+@container bill-list (max-width: 740px) {
   .data-table-head.bill-cols {
     display: none;
   }
 
   .data-row.bill-cols {
-    grid-template-columns: 46px minmax(0, 1fr) auto 32px;
+    grid-template-columns: 48px minmax(0, 1fr) auto 30px;
     grid-template-areas:
-      'logo name price actions'
-      'logo date status actions';
-    row-gap: 4px;
+      'logo name    price  actions'
+      '.    account status .'
+      '.    date    .      .';
+    row-gap: 6px;
     column-gap: 10px;
-    padding: 12px 12px;
+    padding: 12px 14px;
+    align-items: center;
+  }
+
+  .bill-table.hide-date .data-row.bill-cols {
+    grid-template-areas:
+      'logo name    price  actions'
+      '.    account status .';
+  }
+
+  .data-row.bill-cols .row-logo,
+  .data-row.bill-cols .row-price,
+  .data-row.bill-cols .row-actions {
+    align-self: start;
+  }
+
+  .data-row.bill-cols .row-logo {
+    margin-top: 2px;
+  }
+
+  .data-row.bill-cols .row-price {
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+
+  .data-row.bill-cols .row-actions {
+    margin-top: -4px;
   }
 
   .data-row.bill-cols .row-account {
-    display: none;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+
+  .data-row.bill-cols .row-status {
+    justify-self: end;
   }
 
   .data-row.bill-cols .row-date {
     font-size: 12px;
     color: var(--text-muted);
+  }
+}
+
+@container bill-list (max-width: 360px) {
+  .data-row.bill-cols {
+    grid-template-areas:
+      'logo    name    price  actions'
+      'account account status .'
+      'date    date    .      .';
+    padding: 12px;
+  }
+
+  .bill-table.hide-date .data-row.bill-cols {
+    grid-template-areas:
+      'logo    name    price  actions'
+      'account account status .';
   }
 }

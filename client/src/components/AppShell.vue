@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
-          :class="{ active: route.path === item.to }"
+          :class="{ active: route.path === item.to || (item.to === '/bills' && route.path.startsWith('/bills/')) }"
           :title="collapsed ? item.label : undefined"
         >
           <SIcon :icon="item.icon" class="sidebar-link-icon" />
@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
         <SIcon icon="lucide:wallet" />
         <span>汇总</span>
       </RouterLink>
-      <RouterLink to="/bills" class="mobile-tab" :class="{ active: route.path === '/bills' }">
+      <RouterLink to="/bills" class="mobile-tab" :class="{ active: route.path === '/bills' || route.path.startsWith('/bills/') }">
         <SIcon icon="lucide:receipt-text" />
         <span>账单</span>
       </RouterLink>

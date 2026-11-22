@@ -88,8 +88,14 @@ export interface Review { id: string; cardId: string; cardName: string; frequenc
 
 export function parseMoney(value: string, currency: Currency): number {
   const digits = currencies[currency];
-  if (digits === undefined || !/^\d+(?:\.\d+)?$/.test(value)) throw new Error('请输入正数金额');
-  const [whole, fraction = ''] = value.split('.');
+  // 兼容粘贴带千分位逗号或全角数字的金额（如 235,944），同时拒绝 12,34 这类疑似小数逗号。
+  const normalized = value
+    .trim()
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/，/g, ',')
+    .replace(/．/g, '.');
+  if (digits === undefined || !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(normalized)) throw new Error('请输入正数金额');
+  const [whole, fraction = ''] = normalized.replace(/,/g, '').split('.');
   if (fraction.length > digits) throw new Error(`${currency} 最多支持 ${digits} 位小数`);
   const minor = BigInt(whole) * 10n ** BigInt(digits) + BigInt(fraction.padEnd(digits, '0') || '0');
   if (minor <= 0n) throw new Error('零金额请使用“无新增账单”，不创建账单');
@@ -161,3 +167,5 @@ export interface NotificationItem {
   createdAt: string; updatedAt: string; readAt: string | null; resolvedAt: string | null;
 }
 export interface NotificationPage { items: NotificationItem[]; total: number; unreadCount: number; page: number; pageSize: number }
+
+export * from './reconcile.js';

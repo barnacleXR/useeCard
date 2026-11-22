@@ -9,12 +9,18 @@ import EntityIcon from './EntityIcon.vue';
 import CardArtwork from './CardArtwork.vue';
 import CardBrandBadge from './CardBrandBadge.vue';
 
-// 统一容器精细分隔列表：卡面 | 信用卡 | 扣款账户 | 扣款日 | 状态 | 金额 | 操作。
-withDefaults(defineProps<{ bills: Bill[]; empty?: string }>(), { empty: '这里还没有账单。' });
+// 统一容器精细分隔列表：宽容器表格式，窄容器自动切换为紧凑双行卡片。
+withDefaults(defineProps<{ bills: Bill[]; empty?: string; hideDate?: boolean }>(), {
+  empty: '这里还没有账单。',
+  hideDate: false,
+});
 const store = useWorkspace();
 const editing = ref<Bill>();
 const pending = ref('');
 const menu = ref('');
+
+const cardOf = (bill: Bill) => store.cardById.get(bill.cardId);
+const accountOf = (bill: Bill) => store.accountById.get(bill.debitAccountId);
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -112,12 +118,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="!bills.length" class="panel empty">{{ empty }}</div>
-  <div v-else class="data-table">
+  <div v-else class="data-table bill-table" :class="{ 'hide-date': hideDate }">
     <div class="data-table-head bill-cols" aria-hidden="true">
       <span />
       <span>信用卡</span>
       <span>扣款账户</span>
-      <span>扣款日</span>
+      <span v-if="!hideDate">扣款日</span>
       <span>状态</span>
       <span class="col-price">应还金额</span>
       <span />
@@ -127,29 +133,23 @@ onBeforeUnmount(() => {
       <CardArtwork
         class="row-logo"
         :name="bill.cardName"
-        :asset-id="store.cardById.get(bill.cardId)?.iconAssetId"
-        :last4="store.cardById.get(bill.cardId)?.last4"
+        :asset-id="cardOf(bill)?.iconAssetId"
+        :last4="cardOf(bill)?.last4"
         :width="48"
       />
       <div class="row-name">
         <strong>{{ bill.cardName }}</strong>
-        <span class="card-network-line">
-          <CardBrandBadge :brand="store.cardById.get(bill.cardId)?.brand ?? ''" />
-          <small v-if="store.cardById.get(bill.cardId)?.last4">
-            •••• {{ store.cardById.get(bill.cardId)?.last4 }}
-          </small>
+        <span v-if="cardOf(bill)?.brand || cardOf(bill)?.last4" class="card-network-line">
+          <CardBrandBadge :brand="cardOf(bill)?.brand ?? ''" />
+          <small v-if="cardOf(bill)?.last4">•••• {{ cardOf(bill)?.last4 }}</small>
         </span>
         <small v-if="bill.note" class="row-note">{{ bill.note }}</small>
       </div>
       <div class="row-account">
-        <EntityIcon
-          :name="bill.accountName"
-          :asset-id="store.accountById.get(bill.debitAccountId)?.iconAssetId"
-          :size="20"
-        />
-        <span>{{ bill.accountName }}</span>
+        <EntityIcon :name="bill.accountName" :asset-id="accountOf(bill)?.iconAssetId" :size="20" />
+        <span class="row-account-name">{{ bill.accountName }}</span>
       </div>
-      <div class="row-date">{{ shortDate(bill.dueDate) }}</div>
+      <div v-if="!hideDate" class="row-date">{{ shortDate(bill.dueDate) }}</div>
       <div class="row-status">
         <span class="status" :class="bill.status">{{ statusText(bill) }}</span>
       </div>

@@ -416,7 +416,7 @@ textarea:disabled {
   flex-shrink: 0;
 }
 
-/* 统一 @vean/ui SSelect / DateInput / TimeInput / MonthInput 外观 */
+/* 统一 @vean/ui SSelect / DateRangeInput / DateInput / TimeInput / MonthInput 外观 */
 .field [role='combobox'],
 .filter-select [role='combobox'] {
   height: var(--control-h);
@@ -539,15 +539,22 @@ textarea:disabled {
 .field > .date-input,
 .field > .time-input {
   width: 100%;
-  min-height: var(--control-h);
 }
 
 .date-range-input > :first-child,
 .field > .date-input,
 .field > .time-input {
+  height: var(--control-h);
+  min-height: var(--control-h);
   background: var(--surface-card);
   border-color: var(--line-default);
   border-radius: var(--radius-md);
+}
+
+.date-range-input > :first-child:hover,
+.field > .date-input:hover,
+.field > .time-input:hover {
+  border-color: var(--line-strong);
 }
 
 /* ===== 工具栏与分页 ===== */

@@ -4,9 +4,12 @@ import {parseMoney, formatMoney, dateSchema, addMinor, dueDaySchema, computeBill
 test('十进制金额按币种精确解析，拒绝精度错误、零和溢出', () => {
   assert.equal(parseMoney('12.34','USD'),1234);
   assert.equal(parseMoney('1000','JPY'),1000);
+  assert.equal(parseMoney('235,944','JPY'),235944);
+  assert.equal(parseMoney(' 1,234,567.89 ','USD'),123456789);
+  assert.equal(parseMoney('２３５，９４４','JPY'),235944);
   assert.equal(parseMoney('0.29','USD'),29);
   assert.equal(formatMoney(9007199254740991,'USD'),'USD 90,071,992,547,409.91');
-  for(const [v,c] of [['1.5','JPY'],['1.234','USD'],['0','JPY'],['9007199254740992','JPY'],['1e3','USD']] as const) assert.throws(()=>parseMoney(v,c));
+  for(const [v,c] of [['1.5','JPY'],['1.234','USD'],['12,34','USD'],['0','JPY'],['9007199254740992','JPY'],['1e3','USD']] as const) assert.throws(()=>parseMoney(v,c));
   assert.throws(()=>addMinor(Number.MAX_SAFE_INTEGER,1));
 });
 test('日期仅校验日历合法性，不顺延周末或节假日',()=>{

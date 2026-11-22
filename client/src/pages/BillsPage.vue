@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { billSearchInput, currencies, japanMonth, type BillPage, type BillSearch } from '@ccm/shared';
-import { SSelect } from '@vean/ui';
+import { SSelect, SIcon } from '@vean/ui';
 import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import PageShell from '../components/PageShell.vue';
@@ -102,6 +102,12 @@ onMounted(load);
 
 <template>
   <PageShell>
+    <template #actions>
+      <RouterLink to="/bills/reconcile" class="quiet">
+        <SIcon icon="lucide:file-check-2" />
+        <span>扣款核验</span>
+      </RouterLink>
+    </template>
     <section class="filter-bar">
       <div class="toolbar">
         <div class="field date-range-field">
