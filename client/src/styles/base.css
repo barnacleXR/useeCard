@@ -600,10 +600,12 @@ textarea:disabled {
   .toolbar .field,
   .toolbar .date-range-field {
     min-width: 0;
+    max-width: 100%;
     flex: 1 1 100%;
   }
   .toolbar .filter-select {
-    min-width: calc(50% - 6px);
+    min-width: 0;
+    max-width: 100%;
     flex: 1 1 calc(50% - 6px);
   }
 }

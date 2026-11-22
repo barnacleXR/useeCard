@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { api, getCsrf } from '../api';
 import TimeInput from './fields/TimeInput.vue';
 import { SSelect } from '@vean/ui';
+import ModalDialog from './ModalDialog.vue';
 interface Backup {id:string;createdAt:string;bytes:number;reason:'manual'|'automatic'|'before-restore';counts:Record<string,number>}
 interface Schedule {frequency:'off'|'daily'|'weekly';time:string;weekday:number;retentionDays:number}
 interface Status {running:boolean;schedule:Schedule;latest:{ok:boolean;at:string;message?:string}|null;lastSuccessAt:string|null;lastFailureAt:string|null;backups:Backup[];maxDatabaseBytes:number;nextRun:string|null}
@@ -61,18 +62,21 @@ async function remove(id:string){if(!window.confirm('确认删除这份备份文
   </div>
   <p v-else class="muted">还没有完整备份。</p>
   <p class="muted">新备份支持最多 1 GiB 数据库；旧版 .backup.json 仍可恢复。手动备份和恢复前快照不会被自动清理。</p>
-  <div v-if="restoreOpen" class="modal-backdrop" @click.self="!busy&&!result&&(restoreOpen=false)">
-    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="restore-title">
-      <template v-if="result"><h2 id="restore-title">恢复完成</h2><p>数据已恢复，旧登录已失效。请用备份中的账号重新登录；恢复前的数据已另存为快照。</p><a href="/" class="primary">重新登录</a></template>
-      <form v-else class="form-grid" @submit.prevent="restore">
-        <div class="row full"><h2 id="restore-title">从完整备份恢复</h2><button class="quiet" type="button" :disabled="busy" @click="restoreOpen=false;password='';selectedFile=undefined;confirmed=false">关闭</button></div>
-        <p class="full muted">恢复会替换当前实例的数据。系统先校验文件并保存当前快照，恢复成功后所有浏览器和 App 都需要重新登录。自动备份会关闭，请登录后重新确认设置。部署地址与环境配置保持当前值。</p>
-        <label class="full">useeCard 完整备份文件<input type="file" accept=".ucb,.json" required :disabled="busy" @change="selectFile"></label>
-        <label class="full">当前管理员密码<input v-model="password" type="password" autocomplete="current-password" required :disabled="busy"></label>
-        <label class="checkbox full"><input v-model="confirmed" type="checkbox" :disabled="busy">我确认用备份中的数据替换当前数据</label>
-        <p v-if="error" class="error full" role="alert">{{error}}</p>
-        <button class="primary full" :disabled="busy||!confirmed||!selectedFile||!password">{{busy?`正在上传 ${progress}% 并恢复，请勿关闭页面…`:'校验并恢复'}}</button>
-      </form>
-    </section>
-  </div>
+  <ModalDialog v-if="restoreOpen" :title="result ? '恢复完成' : '从完整备份恢复'" :busy="busy" title-id="restore-title" @close="!busy&&!result&&(restoreOpen=false,password='',selectedFile=undefined,confirmed=false)">
+    <div v-if="result" class="stack">
+      <p>数据已恢复，旧登录已失效。请用备份中的账号重新登录；恢复前的数据已另存为快照。</p>
+      <div><a href="/" class="primary">重新登录</a></div>
+    </div>
+    <form v-else id="restore-backup-form" class="form-grid" @submit.prevent="restore">
+      <p class="full muted">恢复会替换当前实例的数据。系统先校验文件并保存当前快照，恢复成功后所有浏览器和 App 都需要重新登录。自动备份会关闭，请登录后重新确认设置。部署地址与环境配置保持当前值。</p>
+      <label class="full">useeCard 完整备份文件<input type="file" accept=".ucb,.json" required :disabled="busy" @change="selectFile"></label>
+      <label class="full">当前管理员密码<input v-model="password" type="password" autocomplete="current-password" required :disabled="busy"></label>
+      <label class="checkbox full"><input v-model="confirmed" type="checkbox" :disabled="busy">我确认用备份中的数据替换当前数据</label>
+      <p v-if="error" class="error full" role="alert">{{error}}</p>
+    </form>
+    <template v-if="!result" #footer>
+      <button type="button" class="quiet" :disabled="busy" @click="restoreOpen=false;password='';selectedFile=undefined;confirmed=false">取消</button>
+      <button type="submit" form="restore-backup-form" class="primary" :disabled="busy||!confirmed||!selectedFile||!password">{{busy?`正在上传 ${progress}% 并恢复，请勿关闭页面…`:'校验并恢复'}}</button>
+    </template>
+  </ModalDialog>
 </template>
