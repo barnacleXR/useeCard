@@ -1,7 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { SIcon } from '@vean/ui';
+import { SPopover } from '@vean/ui';
+import {
+  PhBell,
+  PhCalendarDots,
+  PhCaretUpDown,
+  PhChartBar,
+  PhCheckSquare,
+  PhCreditCard,
+  PhDotsThreeCircle,
+  PhGearSix,
+  PhPlus,
+  PhReceipt,
+  PhSidebarSimple,
+  PhSignOut,
+  PhUserCircle,
+  PhWallet,
+  PhX,
+} from '@phosphor-icons/vue';
 import { api } from '../api';
 import { useWorkspace } from '../stores/workspace';
 import BrandLogo from './BrandLogo.vue';
@@ -17,6 +34,7 @@ const STORAGE_KEY = 'useecard-sidebar-collapsed';
 const collapsed = ref(localStorage.getItem(STORAGE_KEY) === '1');
 const quickEditor = ref(false);
 const moreOpen = ref(false);
+const accountOpen = ref(false);
 
 const unreadCount = ref(0);
 const unreadFailed = ref(false);
@@ -25,20 +43,29 @@ let unreadSeq = 0;
 let unreadTimer: ReturnType<typeof setInterval>;
 
 const navItems = [
-  { to: '/', label: '备款汇总', icon: 'lucide:wallet' },
-  { to: '/bills', label: '账单', icon: 'lucide:receipt-text' },
-  { to: '/calendar', label: '日历', icon: 'lucide:calendar-days' },
-  { to: '/reviews', label: '月度检查', icon: 'lucide:list-checks', showUnreviewed: true },
-  { to: '/reports', label: '月报', icon: 'lucide:chart-no-axes-combined' },
-  { to: '/manage', label: '卡片与账户', icon: 'lucide:credit-card' },
+  { to: '/', label: '备款汇总', icon: PhWallet },
+  { to: '/bills', label: '账单', icon: PhReceipt },
+  { to: '/calendar', label: '日历', icon: PhCalendarDots },
+  { to: '/reviews', label: '月度检查', icon: PhCheckSquare, showUnreviewed: true },
+  { to: '/notifications', label: '通知', icon: PhBell, showUnread: true },
+  { to: '/reports', label: '月报', icon: PhChartBar },
+  { to: '/manage', label: '卡片与账户', icon: PhCreditCard },
 ];
 
 const settingsPaths = ['/settings', '/profile', '/backups', '/system', '/audit'];
 const inSettings = computed(() => settingsPaths.includes(route.path));
+const mobileMoreActive = computed(() => moreOpen.value || inSettings.value || ['/calendar', '/reports'].includes(route.path));
 const canAddBill = computed(() => store.cards.some(c => !c.archivedAt));
 const unreviewedCount = computed(() => store.reviews.filter(r => r.status === 'unreviewed').length);
 const displayName = computed(() => profile.value?.displayName || profile.value?.username || '账户与设置');
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
+const notificationLabel = computed(() =>
+  unreadFailed.value ? '通知，暂时无法刷新' : `通知，${unreadCount.value} 条未读`,
+);
+
+function isNavActive(path: string) {
+  return route.path === path || (path === '/bills' && route.path.startsWith('/bills/'));
+}
 
 function toggleSidebar() {
   collapsed.value = !collapsed.value;
@@ -70,6 +97,7 @@ async function loadProfile() {
 watch(() => store.revision, () => void loadUnread());
 watch(() => route.fullPath, () => {
   moreOpen.value = false;
+  accountOpen.value = false;
 });
 
 onMounted(() => {
@@ -93,7 +121,7 @@ onBeforeUnmount(() => {
     <!-- 桌面端轻量侧栏 -->
     <aside class="app-sidebar" :class="{ collapsed }" aria-label="主导航">
       <div class="sidebar-brand">
-        <RouterLink to="/" class="sidebar-brand-link" title="useeCard 备款汇总">
+        <RouterLink to="/" class="sidebar-brand-link" aria-label="useeCard 备款汇总" title="useeCard 备款汇总">
           <BrandLogo :size="28" />
           <span v-if="!collapsed" class="sidebar-brand-name">useeCard</span>
         </RouterLink>
@@ -105,7 +133,7 @@ onBeforeUnmount(() => {
           title="收起侧栏"
           @click="toggleSidebar"
         >
-          <SIcon icon="lucide:panel-left-close" />
+          <PhSidebarSimple :size="18" aria-hidden="true" />
         </button>
       </div>
 
@@ -118,17 +146,18 @@ onBeforeUnmount(() => {
         title="展开侧栏"
         @click="toggleSidebar"
       >
-        <SIcon icon="lucide:panel-left-open" />
+        <PhSidebarSimple :size="18" aria-hidden="true" />
       </button>
 
       <button
+        v-if="route.path !== '/' || collapsed"
         type="button"
-        class="primary sidebar-cta"
+        class="quiet sidebar-cta"
         :disabled="!canAddBill"
         :title="canAddBill ? '录入账单' : '请先添加信用卡'"
         @click="quickEditor = true"
       >
-        <SIcon icon="lucide:plus" />
+        <PhPlus :size="16" aria-hidden="true" />
         <span v-if="!collapsed">录入账单</span>
       </button>
 
@@ -138,10 +167,17 @@ onBeforeUnmount(() => {
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
-          :class="{ active: route.path === item.to || (item.to === '/bills' && route.path.startsWith('/bills/')) }"
+          :class="{ active: isNavActive(item.to) }"
+          :aria-label="item.showUnread ? notificationLabel : collapsed ? item.label : undefined"
           :title="collapsed ? item.label : undefined"
         >
-          <SIcon :icon="item.icon" class="sidebar-link-icon" />
+          <component
+            :is="item.icon"
+            :size="20"
+            :weight="isNavActive(item.to) ? 'fill' : 'regular'"
+            class="sidebar-link-icon"
+            aria-hidden="true"
+          />
           <span v-if="!collapsed" class="sidebar-link-label">{{ item.label }}</span>
           <span
             v-if="item.showUnreviewed && unreviewedCount > 0"
@@ -150,55 +186,54 @@ onBeforeUnmount(() => {
           >
             {{ unreviewedCount }}
           </span>
+          <span v-if="item.showUnread && unreadCount > 0" class="sidebar-pill brand" aria-hidden="true">
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
         </RouterLink>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="sidebar-utility-row">
-          <RouterLink
-            to="/notifications"
-            class="sidebar-link"
-            style="flex: 1"
-            :class="{ active: route.path === '/notifications' }"
-            :aria-label="unreadFailed ? '通知，暂时无法刷新' : `通知，${unreadCount} 条未读`"
-            :title="collapsed ? '通知' : undefined"
-          >
-            <SIcon icon="lucide:bell" class="sidebar-link-icon" />
-            <span v-if="!collapsed" class="sidebar-link-label">通知</span>
-            <span v-if="unreadCount > 0" class="sidebar-pill brand">
-              {{ unreadCount > 99 ? '99+' : unreadCount }}
-            </span>
-          </RouterLink>
-          <ThemeModeButton />
-        </div>
-
-        <div class="sidebar-utility-row">
-          <RouterLink
-            to="/settings"
-            class="sidebar-account-btn"
-            :class="{ active: inSettings }"
-            :title="collapsed ? `${displayName} · 设置` : undefined"
-          >
-            <span class="sidebar-avatar">
-              <img v-if="profile?.hasAvatar" :src="'/api/profile/avatar'" alt="" />
-              <template v-else>{{ avatarInitial }}</template>
-            </span>
-            <span v-if="!collapsed" class="sidebar-account-meta">
-              <strong>{{ displayName }}</strong>
-              <small>设置 · 备份 · 系统</small>
-            </span>
-          </RouterLink>
-          <button
-            v-if="!collapsed"
-            type="button"
-            class="quiet ghost icon"
-            aria-label="退出登录"
-            title="退出登录"
-            @click="emit('logout')"
-          >
-            <SIcon icon="lucide:log-out" />
-          </button>
-        </div>
+        <SPopover
+          v-model:open="accountOpen"
+          placement="top-start"
+          :show-arrow="false"
+          :positioner-props="{ sideOffset: 8, hideWhenDetached: true }"
+        >
+          <template #trigger>
+            <button
+              type="button"
+              class="sidebar-account-btn"
+              :class="{ active: inSettings || accountOpen }"
+              :aria-label="`${displayName}，账户与设置`"
+              :title="collapsed ? '账户与设置' : undefined"
+            >
+              <span class="sidebar-avatar">
+                <img v-if="profile?.hasAvatar" :src="'/api/profile/avatar'" alt="" />
+                <template v-else>{{ avatarInitial }}</template>
+              </span>
+              <span v-if="!collapsed" class="sidebar-account-meta">
+                <strong>{{ displayName }}</strong>
+                <small>账户与设置</small>
+              </span>
+              <PhCaretUpDown v-if="!collapsed" :size="16" class="sidebar-link-icon" aria-hidden="true" />
+            </button>
+          </template>
+          <nav class="sidebar-account-menu" aria-label="账户与设置">
+            <RouterLink to="/profile" class="sidebar-link" @click="accountOpen = false">
+              <PhUserCircle :size="18" class="sidebar-link-icon" aria-hidden="true" />
+              个人中心
+            </RouterLink>
+            <RouterLink to="/settings" class="sidebar-link" @click="accountOpen = false">
+              <PhGearSix :size="18" class="sidebar-link-icon" aria-hidden="true" />
+              设置
+            </RouterLink>
+            <ThemeModeButton show-label class="sidebar-link" />
+            <button type="button" class="sidebar-link danger" @click="accountOpen = false; emit('logout')">
+              <PhSignOut :size="18" class="sidebar-link-icon" aria-hidden="true" />
+              退出登录
+            </button>
+          </nav>
+        </SPopover>
       </div>
     </aside>
 
@@ -210,7 +245,7 @@ onBeforeUnmount(() => {
           <RouterLink to="/" aria-label="返回备款汇总">
             <BrandLogo :size="26" />
           </RouterLink>
-          <span class="mobile-topbar-title">{{ route.meta.title || 'useeCard' }}</span>
+          <span class="mobile-topbar-title">{{ route.path === '/' ? 'useeCard' : route.meta.title || 'useeCard' }}</span>
         </div>
         <div class="mobile-topbar-actions">
           <button
@@ -219,16 +254,16 @@ onBeforeUnmount(() => {
             :disabled="!canAddBill"
             @click="quickEditor = true"
           >
-            <SIcon icon="lucide:plus" />
+            <PhPlus :size="16" aria-hidden="true" />
             <span>录入</span>
           </button>
           <RouterLink
             to="/notifications"
             class="quiet ghost icon sm"
-            :aria-label="`通知，${unreadCount} 条未读`"
+            :aria-label="notificationLabel"
             style="position: relative"
           >
-            <SIcon icon="lucide:bell" />
+            <PhBell :size="18" aria-hidden="true" />
             <span v-if="unreadCount > 0" class="mobile-dot" />
           </RouterLink>
           <ThemeModeButton />
@@ -245,30 +280,30 @@ onBeforeUnmount(() => {
 
     <!-- 移动端底部 Tab 栏 -->
     <nav class="mobile-tabbar" aria-label="底部导航">
-      <RouterLink to="/" class="mobile-tab" :class="{ active: route.path === '/' }">
-        <SIcon icon="lucide:wallet" />
+      <RouterLink to="/" class="mobile-tab" :class="{ active: isNavActive('/') }">
+        <PhWallet :size="20" :weight="isNavActive('/') ? 'fill' : 'regular'" aria-hidden="true" />
         <span>汇总</span>
       </RouterLink>
-      <RouterLink to="/bills" class="mobile-tab" :class="{ active: route.path === '/bills' || route.path.startsWith('/bills/') }">
-        <SIcon icon="lucide:receipt-text" />
+      <RouterLink to="/bills" class="mobile-tab" :class="{ active: isNavActive('/bills') }">
+        <PhReceipt :size="20" :weight="isNavActive('/bills') ? 'fill' : 'regular'" aria-hidden="true" />
         <span>账单</span>
       </RouterLink>
-      <RouterLink to="/reviews" class="mobile-tab" :class="{ active: route.path === '/reviews' }">
-        <SIcon icon="lucide:list-checks" />
+      <RouterLink to="/reviews" class="mobile-tab" :class="{ active: isNavActive('/reviews') }">
+        <PhCheckSquare :size="20" :weight="isNavActive('/reviews') ? 'fill' : 'regular'" aria-hidden="true" />
         <span>检查</span>
         <span v-if="unreviewedCount > 0" class="mobile-tab-badge">{{ unreviewedCount }}</span>
       </RouterLink>
-      <RouterLink to="/manage" class="mobile-tab" :class="{ active: route.path === '/manage' }">
-        <SIcon icon="lucide:credit-card" />
+      <RouterLink to="/manage" class="mobile-tab" :class="{ active: isNavActive('/manage') }">
+        <PhCreditCard :size="20" :weight="isNavActive('/manage') ? 'fill' : 'regular'" aria-hidden="true" />
         <span>卡片</span>
       </RouterLink>
       <button
         type="button"
         class="mobile-tab"
-        :class="{ active: moreOpen || inSettings || route.path === '/calendar' || route.path === '/reports' }"
+        :class="{ active: mobileMoreActive }"
         @click="moreOpen = true"
       >
-        <SIcon icon="lucide:menu" />
+        <PhDotsThreeCircle :size="20" :weight="mobileMoreActive ? 'fill' : 'regular'" aria-hidden="true" />
         <span>更多</span>
       </button>
     </nav>
@@ -282,21 +317,21 @@ onBeforeUnmount(() => {
             <small class="muted">{{ displayName }}</small>
           </div>
           <button type="button" class="quiet ghost icon sm" aria-label="关闭" @click="moreOpen = false">
-            <SIcon icon="lucide:x" />
+            <PhX :size="18" aria-hidden="true" />
           </button>
         </header>
         <div class="drawer-body">
           <div class="stack" style="gap: 6px">
             <RouterLink to="/calendar" class="sidebar-link" :class="{ active: route.path === '/calendar' }">
-              <SIcon icon="lucide:calendar-days" class="sidebar-link-icon" />
+              <PhCalendarDots :size="18" class="sidebar-link-icon" aria-hidden="true" />
               <span class="sidebar-link-label">扣款日历</span>
             </RouterLink>
             <RouterLink to="/reports" class="sidebar-link" :class="{ active: route.path === '/reports' }">
-              <SIcon icon="lucide:chart-no-axes-combined" class="sidebar-link-icon" />
+              <PhChartBar :size="18" class="sidebar-link-icon" aria-hidden="true" />
               <span class="sidebar-link-label">月报</span>
             </RouterLink>
             <RouterLink to="/settings" class="sidebar-link" :class="{ active: inSettings }">
-              <SIcon icon="lucide:settings" class="sidebar-link-icon" />
+              <PhGearSix :size="18" class="sidebar-link-icon" aria-hidden="true" />
               <span class="sidebar-link-label">设置与系统管理</span>
             </RouterLink>
             <button
@@ -305,7 +340,7 @@ onBeforeUnmount(() => {
               style="width: 100%; border: 0; background: transparent; text-align: left"
               @click="moreOpen = false; emit('logout')"
             >
-              <SIcon icon="lucide:log-out" class="sidebar-link-icon" />
+              <PhSignOut :size="18" class="sidebar-link-icon" aria-hidden="true" />
               <span class="sidebar-link-label">退出登录</span>
             </button>
           </div>

@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { SConfigProvider } from '@vean/ui';
-import { readThemeEnvelope } from '@vean/theme/storage';
 import { formatMoney } from '@ccm/shared';
 import { colors } from './themePreset';
 import ThemeInitializer from './components/ThemeInitializer.vue';
@@ -14,7 +13,8 @@ import { oidcMessage, takeHashParam } from './oidc';
 import { clearSnapshot, loadSnapshot, reconcileSnapshot, type OfflineSnapshot } from './offline';
 import { enableReconcileDrafts, clearAllReconcileDrafts } from './reconcileDraft';
 
-const initialTheme = readThemeEnvelope() ? {} : { preset: colors, mode: 'auto' as const };
+// 站点配色优先于浏览器存储的旧配色，明暗模式仍由 Vean 读取和保存。
+const theme = { overrides: colors };
 const route = useRoute();
 const store = useWorkspace();
 
@@ -126,7 +126,7 @@ async function logout() {
 </script>
 
 <template>
-  <SConfigProvider persist-theme locale="zh-CN" :theme="initialTheme">
+  <SConfigProvider persist-theme locale="zh-CN" :theme="theme">
     <ThemeInitializer />
 
     <div v-if="!ready" class="auth-page">

@@ -1,39 +1,42 @@
-/* 设计令牌：现代极简金融风（浅色中性灰白 / 暗色纯净深炭），单一克制主色与极淡 1px 描边 */
+/* 从侧栏、画布到面板逐层调整明度。状态色只用在有意义的反馈上。 */
 :root {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* 表面层级 */
-  --surface-canvas: #f7f8fa;
-  --surface-sidebar: #f2f4f7;
+  --surface-canvas: #f6f5f2;
+  --surface-sidebar: #edeae5;
   --surface-card: #ffffff;
-  --surface-subtle: #f3f4f6;
-  --surface-hover: #eef0f4;
+  --surface-subtle: #f1efeb;
+  --surface-hover: #efede8;
   --surface-popover: #ffffff;
+  --funding-surface: #fcf4e7;
+  --funding-label: #765127;
 
   /* 文字层级 */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-faint: #94a3b8;
+  --text-primary: #22211f;
+  --text-secondary: #514e48;
+  --text-muted: #68645d;
+  --text-faint: #7d786f;
 
   /* 边框层级：极低饱和度 */
-  --line-subtle: rgba(15, 23, 42, 0.07);
-  --line-default: rgba(15, 23, 42, 0.105);
-  --line-strong: rgba(15, 23, 42, 0.155);
+  --line-subtle: rgba(43, 37, 29, 0.075);
+  --line-default: rgba(43, 37, 29, 0.13);
+  --line-strong: rgba(43, 37, 29, 0.21);
 
   /* 语义色 */
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-soft: rgba(37, 99, 235, 0.09);
+  --brand: #242321;
+  --brand-hover: #3d3b37;
   --brand-fg: #ffffff;
+  --brand-soft: color-mix(in srgb, var(--brand) 9%, transparent);
+  --brand-line: color-mix(in srgb, var(--brand) 35%, transparent);
 
-  --ok: #15803d;
-  --ok-soft: rgba(21, 128, 61, 0.1);
-  --warn: #b45309;
-  --warn-soft: rgba(180, 83, 9, 0.11);
-  --danger: #dc2626;
-  --danger-soft: rgba(220, 38, 38, 0.09);
+  --ok: #286550;
+  --ok-soft: color-mix(in srgb, var(--ok) 12%, transparent);
+  --warn: #8a500e;
+  --warn-soft: color-mix(in srgb, var(--warn) 11%, transparent);
+  --danger: #b42b3b;
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, transparent);
 
   /* 尺寸与圆角 */
   --control-h: 36px;
@@ -52,7 +55,7 @@
   --shadow-drawer: -12px 0 40px rgba(15, 23, 42, 0.14);
 
   /* 布局尺寸 */
-  --sidebar-w: 236px;
+  --sidebar-w: 216px;
   --sidebar-collapsed-w: 66px;
   --mobile-topbar-h: 54px;
   --mobile-tabbar-h: 60px;
@@ -64,33 +67,31 @@
 }
 
 html.dark {
-  --surface-canvas: #0b0d11;
-  --surface-sidebar: #0e1116;
-  --surface-card: #13161d;
-  --surface-subtle: #181c25;
-  --surface-hover: #1e232e;
-  --surface-popover: #171b24;
+  --surface-canvas: #181817;
+  --surface-sidebar: #111110;
+  --surface-card: #232220;
+  --surface-subtle: #2c2a27;
+  --surface-hover: #302e2b;
+  --surface-popover: #2b2926;
+  --funding-surface: #30281d;
+  --funding-label: #e2bd85;
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #8b95a5;
-  --text-faint: #647084;
+  --text-primary: #f1efeb;
+  --text-secondary: #cac5bd;
+  --text-muted: #ada79d;
+  --text-faint: #938d83;
 
-  --line-subtle: rgba(255, 255, 255, 0.065);
-  --line-default: rgba(255, 255, 255, 0.105);
-  --line-strong: rgba(255, 255, 255, 0.18);
+  --line-subtle: rgba(255, 249, 239, 0.075);
+  --line-default: rgba(255, 249, 239, 0.13);
+  --line-strong: rgba(255, 249, 239, 0.21);
 
-  --brand: #3b82f6;
-  --brand-hover: #60a5fa;
-  --brand-soft: rgba(59, 130, 246, 0.16);
-  --brand-fg: #ffffff;
+  --brand: #f2eee6;
+  --brand-hover: #ddd8cd;
+  --brand-fg: #242321;
 
-  --ok: #4ade80;
-  --ok-soft: rgba(74, 222, 128, 0.14);
-  --warn: #fbbf24;
-  --warn-soft: rgba(251, 191, 36, 0.14);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
+  --ok: #99d2b4;
+  --warn: #f3be7d;
+  --danger: #ffa0a7;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.28);

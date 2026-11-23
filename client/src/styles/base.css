@@ -290,19 +290,19 @@ small {
 
 .error {
   background: var(--danger-soft);
-  border-color: rgba(220, 38, 38, 0.22);
+  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
   color: var(--danger);
 }
 
 .notice {
   background: var(--warn-soft);
-  border-color: rgba(180, 83, 9, 0.22);
+  border-color: color-mix(in srgb, var(--warn) 22%, transparent);
   color: var(--warn);
 }
 
 .saved-notice {
   background: var(--ok-soft);
-  border-color: rgba(21, 128, 61, 0.22);
+  border-color: color-mix(in srgb, var(--ok) 22%, transparent);
   color: var(--ok);
 }
 

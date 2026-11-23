@@ -122,11 +122,9 @@
 }
 
 .sidebar-link.active {
-  background: var(--surface-card);
+  background: var(--brand-soft);
   color: var(--text-primary);
-  font-weight: 600;
-  border-color: var(--line-subtle);
-  box-shadow: var(--shadow-xs);
+  font-weight: 640;
 }
 
 .sidebar-link-icon {
@@ -179,20 +177,27 @@
 .sidebar-footer {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid var(--line-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  border-top: 1px solid var(--line-default);
 }
 
-.sidebar-utility-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.sidebar-account-menu {
+  display: grid;
+  gap: 2px;
+  width: 172px;
 }
 
-.app-sidebar.collapsed .sidebar-utility-row {
-  flex-direction: column;
+.sidebar-account-menu button {
+  background: transparent;
+  text-align: left;
+}
+
+.sidebar-account-menu button:hover {
+  background: var(--surface-hover);
+}
+
+.sidebar-account-menu .danger,
+.sidebar-account-menu .danger .sidebar-link-icon {
+  color: var(--danger);
 }
 
 .sidebar-account-btn {
@@ -399,7 +404,7 @@
   }
 
   .mobile-tab.active {
-    color: var(--brand);
+    color: var(--text-primary);
     font-weight: 620;
   }
 
@@ -469,11 +474,9 @@
 }
 
 .settings-nav-item.active {
-  background: var(--surface-card);
+  background: var(--brand-soft);
   color: var(--text-primary);
-  font-weight: 600;
-  border-color: var(--line-subtle);
-  box-shadow: var(--shadow-xs);
+  font-weight: 640;
 }
 
 .settings-content {

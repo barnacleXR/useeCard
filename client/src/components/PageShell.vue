@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import { SIcon } from '@vean/ui';
+import { PhPlus } from '@phosphor-icons/vue';
 import { useWorkspace } from '../stores/workspace';
 import BillEditor from './BillEditor.vue';
 
@@ -34,7 +34,7 @@ const canAddBill = computed(() => store.cards.some(c => !c.archivedAt));
         :title="canAddBill ? '录入新账单' : '请先在「卡片与账户」中添加信用卡'"
         @click="editor = true"
       >
-        <SIcon icon="lucide:plus" />
+        <PhPlus :size="16" aria-hidden="true" />
         <span>录入账单</span>
       </button>
     </div>

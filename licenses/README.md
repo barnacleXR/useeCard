@@ -6,6 +6,7 @@ Vean UI、Vue、NestJS 等依赖遵循各自 npm 包内许可证。Wallos 仅参
 
 ## 图标与数据
 
+- Web 主导航、账户菜单和备款汇总使用 [Phosphor Icons for Vue](https://github.com/phosphor-icons/vue) 的图标，许可证见 [PhosphorIcons-MIT.txt](../client/public/licenses/PhosphorIcons-MIT.txt)。
 - `client/public/brands/*.svg`：卡组织图标，来自 [aaronfagan/svg-credit-card-payment-icons](https://github.com/aaronfagan/svg-credit-card-payment-icons) 的 `flat-rounded` 目录，Apache-2.0，许可证见 `svg-credit-card-payment-icons-Apache-2.0.txt`。图标所示品牌为各卡组织的商标。
 - `server/src/data/banks.json`：全国金融机构清单（代码、名称、假名、罗马字），来自 [zengin-code/source-data](https://github.com/zengin-code/source-data)，其 README 声明以 MIT 许可提供；原始数据出处为该项目注明的 ykaku.net 银行检索。
 - 银行图标不随代码分发：由各实例在用户选择后从银行官网抓取，保存在该实例自己的数据库中。

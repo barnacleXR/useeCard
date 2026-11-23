@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { SIcon, SSelect } from '@vean/ui';
+import { SSelect } from '@vean/ui';
+import { PhArrowsClockwise, PhCaretUpDown } from '@phosphor-icons/vue';
 import { currencies } from '@ccm/shared';
 import { useWorkspace } from '../stores/workspace';
 import MonthInput from './fields/MonthInput.vue';
@@ -28,7 +29,11 @@ const currencyItems = computed(() => [
         v-model="currencyModel"
         :items="currencyItems"
         :trigger-props="{ 'aria-label': '币种' }"
-      />
+      >
+        <template #trigger-icon>
+          <PhCaretUpDown :size="14" aria-hidden="true" />
+        </template>
+      </SSelect>
     </div>
     <button
       type="button"
@@ -38,7 +43,7 @@ const currencyItems = computed(() => [
       :title="store.busy ? '刷新中…' : '刷新数据'"
       @click="store.refresh"
     >
-      <SIcon icon="lucide:refresh-cw" :class="{ spin: store.busy }" />
+      <PhArrowsClockwise :size="16" :class="{ spin: store.busy }" aria-hidden="true" />
     </button>
   </div>
 </template>
@@ -64,6 +69,68 @@ const currencyItems = computed(() => [
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .month-filter-bar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) var(--control-h-sm);
+    gap: 6px;
+  }
+
+  .month-filter-currency {
+    min-width: 0;
+    width: auto;
+  }
+
+  .month-filter-currency :deep([role='combobox']) {
+    padding-inline: 7px;
+  }
+
+  .month-filter-bar :deep(.month-input .quiet.icon),
+  .month-filter-bar > .quiet.icon {
+    width: var(--control-h-sm);
+    min-width: var(--control-h-sm);
+    height: var(--control-h-sm);
+  }
+
+  .month-filter-bar :deep(.month-input-trigger),
+  .month-filter-currency :deep([role='combobox']) {
+    height: var(--control-h-sm);
+    min-height: var(--control-h-sm);
+  }
+
+  .month-filter-bar :deep(.month-input-trigger) {
+    min-width: 92px;
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .month-filter-bar {
+    gap: 4px;
+  }
+
+  .month-filter-bar :deep(.month-input) {
+    gap: 2px;
+  }
+
+  .month-filter-currency :deep([role='combobox']) {
+    column-gap: 2px;
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+
+  .month-filter-bar :deep(.month-input .quiet.icon) {
+    width: 26px;
+    min-width: 26px;
+  }
+
+  .month-filter-bar :deep(.month-input-trigger) {
+    min-width: 84px;
+    padding-inline: 5px;
+  }
 }
 
 .spin {
