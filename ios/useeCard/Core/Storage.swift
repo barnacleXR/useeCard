@@ -29,17 +29,23 @@ enum ServerStore {
 enum CredentialVault {
     private static let service = (Bundle.main.bundleIdentifier ?? "useecard") + ".device"
 
-    static func save(_ credentials: DeviceCredentials, scope: String) {
-        guard let data = try? JSONEncoder().encode(credentials) else { return }
-        delete(scope: scope)
+    /// 先原地更新已有条目，不存在时才新增，避免“先删后加”在新增失败时丢掉旧凭证。
+    static func save(_ credentials: DeviceCredentials, scope: String) throws {
+        let data = try JSONEncoder().encode(credentials)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: scope,
+        ]
+        let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
-        SecItemAdd(query as CFDictionary, nil)
+        var status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            status = SecItemAdd(query.merging(attributes) { $1 } as CFDictionary, nil)
+        }
+        guard status == errSecSuccess else { throw StorageError.credentialsNotSaved(status) }
     }
 
     static func load(scope: String) -> DeviceCredentials? {
@@ -94,9 +100,9 @@ enum LocalStore {
         return dir
     }
 
-    private static func write<T: Encodable>(_ value: T, _ name: String, scope: String) {
-        guard let dir = try? directory(scope: scope), let data = try? JSONEncoder().encode(value) else { return }
-        try? data.write(to: dir.appendingPathComponent(name), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    private static func write<T: Encodable>(_ value: T, _ name: String, scope: String) throws {
+        let data = try JSONEncoder().encode(value)
+        try data.write(to: try directory(scope: scope).appendingPathComponent(name), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     private static func read<T: Decodable>(_ type: T.Type, _ name: String, scope: String) -> T? {
@@ -104,14 +110,30 @@ enum LocalStore {
         return try? JSONDecoder().decode(type, from: data)
     }
 
-    static func saveSnapshot(_ snapshot: Snapshot, scope: String) { write(snapshot, "snapshot.json", scope: scope) }
+    /// 快照只是只读缓存，写入失败不影响服务器数据，下次同步会重写。
+    static func saveSnapshot(_ snapshot: Snapshot, scope: String) { try? write(snapshot, "snapshot.json", scope: scope) }
     static func loadSnapshot(scope: String) -> Snapshot? { read(Snapshot.self, "snapshot.json", scope: scope) }
-    static func saveDrafts(_ drafts: [BillDraft], scope: String) { write(drafts, "drafts.json", scope: scope) }
+    /// 草稿只存在本机，写入失败必须让调用方知道，不能假装已保存。
+    static func saveDrafts(_ drafts: [BillDraft], scope: String) throws {
+        do { try write(drafts, "drafts.json", scope: scope) } catch { throw StorageError.draftsNotSaved }
+    }
     static func loadDrafts(scope: String) -> [BillDraft] { read([BillDraft].self, "drafts.json", scope: scope) ?? [] }
 
     /// 注销时清除该账号在本机的全部缓存与草稿。
     static func wipe(scope: String) {
         guard let dir = try? directory(scope: scope) else { return }
         try? FileManager.default.removeItem(at: dir)
+    }
+}
+
+enum StorageError: LocalizedError, Equatable {
+    case credentialsNotSaved(OSStatus)
+    case draftsNotSaved
+
+    var errorDescription: String? {
+        switch self {
+        case let .credentialsNotSaved(status): return "登录凭证未能保存到钥匙串（错误码 \(status)），请重试"
+        case .draftsNotSaved: return "草稿未能保存到本机，请检查存储空间后重试"
+        }
     }
 }

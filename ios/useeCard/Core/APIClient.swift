@@ -176,6 +176,19 @@ actor APIClient {
 
     // MARK: 底层请求
 
+    /// 系统描述常与“无法连接服务器”前缀重复，常见错误改用具体原因。
+    private static func offlineReason(_ error: URLError) -> String {
+        switch error.code {
+        case .cannotConnectToHost: return "服务器拒绝连接，请确认地址和端口"
+        case .cannotFindHost, .dnsLookupFailed: return "找不到该服务器地址"
+        case .timedOut: return "连接超时"
+        case .notConnectedToInternet, .networkConnectionLost: return "网络不可用"
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot: return "安全连接失败，请检查服务器证书"
+        default: return error.localizedDescription
+        }
+    }
+
     private static func request(_ baseURL: URL, _ method: String, _ path: String, query: [String: String] = [:]) -> URLRequest {
         var components = URLComponents(url: baseURL.appendingPathComponent("api/app/v1" + path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) } }
@@ -197,7 +210,7 @@ actor APIClient {
     private static func perform(_ request: URLRequest) async throws -> Data {
         let result: (Data, URLResponse)
         do { result = try await session.data(for: request) }
-        catch let error as URLError { throw ClientError.offline(error.localizedDescription) }
+        catch let error as URLError { throw ClientError.offline(Self.offlineReason(error)) }
         let (data, response) = result
         guard let http = response as? HTTPURLResponse else { throw ClientError.offline("无效响应") }
         guard (200..<300).contains(http.statusCode) else {
